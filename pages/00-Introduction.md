@@ -199,6 +199,7 @@ https://clab.pku.edu.cn/
   - `-t`: 按修改时间排序
   - `-l`: 以长格式列出文件和目录的详细信息
 - `find /path/to/ -name "a.log"`: 在/path/to/目录下查找名为"a.log"的文件
+- `du -h`: 显示当前工作目录下的文件夹所占磁盘空间
 
 ---
 
@@ -206,6 +207,8 @@ https://clab.pku.edu.cn/
 
 - `mkdir qwq`: 创建一个名为"qwq"的文件夹
 - `touch qwq.txt`: 在当前工作目录下创建一个名为"qwq.txt"的文件
+- `mv file.txt /path/to/destination/`: 移动"file.txt"到"/path/to/destination/"目录
+- `mv file.txt qwq.txt`:重命名"file.txt"为"qwq.txt"
 - `rm qwq.txt`: 删除名为"qwq.txt"的文件
   - `rm -r qwq`: 递归删除名为"qwq"的文件夹
   - `rm -f qwq`: 强制删除名为"qwq"的文件夹
