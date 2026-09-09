@@ -33,9 +33,8 @@ coverBackgroundUrl: /00-Introduction/cover.jpg
 
 # 欢迎来到 ICS 课程
 
-YuMenghong, EECS, PKU
+Menghong Yu, EECS, PKU
 
-本Slides在[YangTY 小班课件](https://blog.imyangty.com/ICS25-Slides/1)的基础上修改
 
 <style>
   div{
