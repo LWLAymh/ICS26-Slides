@@ -173,14 +173,13 @@ layout: two-cols
 
 # 如何完成 lab
 
-https://clab.pku.edu.cn/ 
 
 - **ICS 所有的 lab** 都最好在类 UNIX 环境下完成，Windows 环境大概率无法使用。
 - 如果你是 Linux 或 Mac 系统，你可能可以在本地完成部分 lab 的代码编写
 - 如果你是 Windows 系统，建议配置一个 WSL (Windows Subsystem for Linux)
   - 可以参考[《北京大学计算机基础科学与开发手册》by 臧炫懿](https://github.com/ZangXuanyi/getting-started-handout) 中的第 8.1.4 节相关内容
-- 你也可以（且推荐）在 Linux 俱乐部提供的 Clab 上进行完成。
-  - 关于 Clab 的配置与使用，助教稍后会进行演示
+- 你也可以（且推荐）在 Linux 俱乐部提供的 Xlab 上进行完成。
+  - 关于 Xlab 的配置与使用，助教稍后会进行演示
   - 关于 ssh 连接主机以及 Linux 常见命令的使用，请参考[《北京大学计算机基础科学与开发手册》by 臧炫懿](https://github.com/ZangXuanyi/getting-started-handout) 中的第 5.3/7.2/8.1-8.3 节相关内容
 
 
