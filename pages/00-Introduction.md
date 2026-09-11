@@ -178,8 +178,8 @@ layout: two-cols
 - 如果你是 Linux 或 Mac 系统，你可能可以在本地完成部分 lab 的代码编写
 - 如果你是 Windows 系统，建议配置一个 WSL (Windows Subsystem for Linux)
   - 可以参考[《北京大学计算机基础科学与开发手册》by 臧炫懿](https://github.com/ZangXuanyi/getting-started-handout) 中的第 8.1.4 节相关内容
-- 你也可以（且推荐）在 Linux 俱乐部提供的 Xlab 上进行完成。
-  - 关于 Xlab 的配置与使用，助教稍后会进行演示
+- 你也可以（且推荐）在 Linux 俱乐部提供的 xLab 上进行完成。
+  - 关于 xLab 的配置与使用，助教稍后会进行演示
   - 关于 ssh 连接主机以及 Linux 常见命令的使用，请参考[《北京大学计算机基础科学与开发手册》by 臧炫懿](https://github.com/ZangXuanyi/getting-started-handout) 中的第 5.3/7.2/8.1-8.3 节相关内容
 
 
@@ -250,11 +250,11 @@ layout: two-cols
 
 # 如何配置Xlab
 
-- 今年的ICS提供[Xlab](https://xlab.pku.edu.cn/)给大家操作, 您可以查看其[手册](https://xlab.pku.edu.cn/docs/getting-started)获得更多信息, 也可以跟随我在下面写的教程. 如有配置上的问题请联系助教.
+- 今年的ICS提供[xLab](https://xlab.pku.edu.cn/)给大家操作, 您可以查看其[手册](https://xlab.pku.edu.cn/docs/getting-started)获得更多信息, 也可以跟随我在下面写的教程. 如有配置上的问题请联系助教.
 - 新建节点
-  - 进入xlab后, 可以点击右上角的"新建节点", 其它选项可以默认, 最下面会要求你提供一把ed25519公钥.
+  - 进入xLab后, 可以点击右上角的"新建节点", 其它选项可以默认, 最下面会要求你提供一把ed25519公钥.
   - 你也许听说过公私钥加密系统: 具体而言, 这个系统由一把公钥和一把私钥组成, 你需要保护你的私钥, 而公开你的公钥. 
-  - Xlab需要你提供你的公钥, 我们下面将介绍一个简单的生成公钥的流程. 如果你希望更细致地操作, 可以查询更详细的教程.
+  - xLab需要你提供你的公钥, 我们下面将介绍一个简单的生成公钥的流程. 如果你希望更细致地操作, 可以查询更详细的教程.
   - windows系统下, 可以通过打开powershell终端输入 `ssh-keygen -t ed25519`, 然后一路回车. 最终会显示一行形如:
     - `Your public key has been saved in C:/Users/user/.ssh/id_ed25519.pub`
   - 这就是你的公钥! 你可以点开该.pub文件并将其复制到Xlab中需要公钥的地方.
