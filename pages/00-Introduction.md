@@ -274,11 +274,8 @@ https://clab.pku.edu.cn/
   - 如果配置中出现错误, 请打开VSCode设置, 确保其中`remote.SSH.localServerDownload`选项为`auto`或`always`. 如果`auto`仍然出错, 可以尝试改为`always`.
   - 当你发现终端中显示`xxxx:end`时, 点击VSCode中的"新建终端", 此时您已经配置成功. 建议您在当前目录`:~/ics-2026`下为每个lab创建相应的文件夹.
 - 配置你的远端(方法B)(不推荐, 除非您是Linux命令行高手)
-  - 直接使用显示的ssh命令连接远端, 您可以使用Linux命令行进行后续的操作
---- 
-
-# 如何配置Xlab
-
+  - 直接使用显示的ssh命令连接远端, 您可以使用Linux命令行进行后续的操作.
+  - 您可以键入"ctrl+D"退出连接.
 
 ---
 layout: cover
