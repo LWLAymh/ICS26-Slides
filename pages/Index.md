@@ -76,9 +76,9 @@ The last comment block of each slide will be treated as slide notes. It will be 
 
 - 感谢 [Arthals](https://arthals.ink/) 学长
   - 本课件的写作和部署参考了 [Arthals ICS Slides](https://slide.huh.moe/)
+  - 很多题目整理自他的[ICS仓库](https://github.com/zhuozhiyongde/Introduction-to-Computer-System-2023Fall-PKU)
 - 感谢 [YangTY](https://imyangty.com) 学长
   - 本Slides在[YangTY ICS Slides](https://blog.imyangty.com/ICS25-Slides/1)的基础上修改
-  - 很多题目整理自他的[ICS24 仓库](https://github.com/Cgfyufsygsm/ICS24-Introduction-to-Computer-System-2024Fall-PKU)
 - 感谢我的小班助教刘沛雨学长
   - 他的 ICS 小班课也极大助力了我的 ICS 学习之旅
   - 本课件的写作参考了他的小班课件
