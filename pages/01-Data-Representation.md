@@ -33,7 +33,7 @@ coverBackgroundUrl: /01-Data-Representation/cover.jpg
 
 # 数据表示
 
-Taoyu Yang, EECS, PKU
+Menghong Yu, EECS, PKU
 
 <style>
   div{
@@ -41,24 +41,6 @@ Taoyu Yang, EECS, PKU
   }
 </style>
 
----
-layout: center
-class: text-center
----
-
-# 研讨题分享
-
----
-layout: center
-class: text-center
----
-
-# 关于 Datalab
-
-<!--
-给还没开始做/不知道怎么做的同学解释
-再次强调 ddl 和学术诚信问题
--->
 
 ---
 
@@ -77,16 +59,13 @@ basic concepts
 - 一个字节的值域是 $\text{00}_{16}$ ~ $\text{FF}_{16}$
 
 ```asm
-0xA = 10 = 1010
-0xC = 12 = 1100
-0xE = 14 = 1110
+0xA = 10 = 0b1010
+0xC = 12 = 0b1100
+0xF = 15 = 0b1111
 ```
 
 \*需要熟练掌握进制转换{.text-sm}
 
-<!--
-下标代表进制
--->
 
 ---
 
@@ -96,8 +75,8 @@ basic concepts
 
 **字长（word size）**：决定虚拟地址空间的最大大小
 
-- 对于一个字长为 $w$ 位的机器而言，虚拟地址的范围为 $0\sim2^{w-1}$， 程序最多访问 $2^w$ 个字节
-- 为什么？我们需要计算机去寻址，从而需要用 $w$ 位二进制数去表示地址，所以地址的个数就是 $2^w$，所以程序最多访问 $2^w$ 个字节
+- 理论上, 对于一个字长为 $w$ 位的机器而言, 虚拟地址的范围为 $[0,2^{w}-1]$, 程序最多访问 $2^w$ 个字节
+- 为什么? 我们需要计算机去寻址, 从而需要用 $w$ 位二进制数去表示地址, 所以地址的个数就是 $2^w$, 所以程序最多访问 $2^w$ 个字节
 
 ### 字节顺序{.mt-8.mb-4}
 
@@ -108,11 +87,8 @@ basic concepts
 
 **字节是一个整体，不会说字节内部是按照小端序还是大端序排列**
 
-<!--
-记忆：小 - 低字节
+**数组总是小下标对应低地址, 大下标对应高地址**
 
-或许可以画个箱子图
--->
 
 ---
 
@@ -125,21 +101,14 @@ byte order
 - 小端序：（低地址）`0x78 0x56 0x34 0x12`（高地址）
 - 大端序：（低地址）`0x12 0x34 0x56 0x78`（高地址）
 
-**看到了吗，字节内部顺序是固定的，和大端序小端序无关！**
-
-> 思考：字符串 `abcdefgh` 在内存中的存储形式是？提示：`a` 的 ASCII 码为 `0x61`。
-
-一定要在脑子里明确知道，所谓内存，就是一系列连续的字节。无论你是现在初学的一维线性模型，还是后面做 lab 时会考虑到的二维模型，首先都要明确哪边是低地址哪边是高地址。
-
 ### 应用{.mt-8.mb-4}
 
 - 现今，大多数计算机都采用 **小端序**，x86, RISC-V。
+  - CPU计算的时候(例如计算a+b)往往都是从低位到高位计算
+  - 指针往往指向低地址位置, 小端序使得类型转换时不必移动指针
 - 网络通讯中，一般采用 **大端序**。注意：IBM, Sun, Oracle。
-
-
-<!--
-提问学生
--->
+  - 人的阅读顺序是从高位往低位阅读的
+  - 网络包一般由"报头"+"载荷"组成, 路由器转发网络包需要读取报头内容. 因此把报头放在低地址位置, 可以让路由器先看到它并且决定转发策略(感兴趣的同学可以了解一下P4语言)
 
 ---
 
@@ -147,45 +116,8 @@ byte order
 
 boolean operation
 
-<div grid="~ cols-2 gap-12">
+<img src="/01-Data-Representation/gates.jpg" alt="gates" style="width: 75%; height: auto; margin: 0 auto;" />
 
-<div>
-
-| `~`(not) 非  |   |
-|---|---|
-| 0 | 1 |
-| 1 | 0 |
-
-</div>
-
-<div>
-
-
-| `&`(and)  与  | 0 | 1 |
-|---|---|---|
-| 0 | 0 | 0 |
-| 1 | 0 | 1 |
-
-</div>
-
-<div>
-
-| `\|`(or) 或  | 0 | 1 |
-|---|---|---|
-| 0 | 0 | 1 |
-| 1 | 1 | 1 |
-
-</div>
-
-<div>
-
-| `^` (xor)  异或  | 0 | 1 |
-|---|---|---|
-| 0 | 0 | 1 |
-| 1 | 1 | 0 |
-</div>
-
-</div>
 
 ---
 
@@ -207,7 +139,119 @@ logical operation
 
 Q：为什么 `p && *p++` 不会引用空指针？（注意这里是位运算，也有短路特性）
 
-A：因为 `&&` 运算符的短路特性，当 `p` 为空指针时（对应其数字表达为 `0x00000000`，或者说是 `NULL`），`*p` 不会被执行，所以不会出现引用空指针的情况。
+---
+
+# 整数数据类型
+
+integer type
+
+- 接下来我们将讨论以下几种整数数据类型:
+  - bool: 往往使用$1$个byte表示, 使用`0x00`表示false, 使用`0x01`表示true.
+    - 为什么明明一个bit就可以表示bool, 却还要占用一个byte呢?
+    - 因为计算机内存的最小可寻址单位是byte
+  - char: 使用$1$个byte表示.
+    - 常用转换规则: `A: 0x41`, `a: 0x61`, `0: 0x30`.
+  - short(i16): 使用$2$个byte表示, 数据范围$[-2^{15},2^{15}-1]$.
+    - unsigned short(u16): 使用$2$个byte表示, 数据范围$[0,2^{16}-1]$.
+  - int(signed)(i32): 使用$4$个bytes表示, 数据范围$[-2^{31},2^{31}-1]$.
+    - unsigned int(unsigned)(u32): 使用$4$个bytes表示, 数据范围$[0,2^{32}-1]$. 
+  - long long(i64): 使用$8$个bytes表示, 数据范围$[-2^{63},2^{63}-1]$.
+    - unsigned long long(u64): 使用$8$个bytes表示, 数据范围$[0,2^{64}-1]$.
+---
+
+# 无符号整数数据类型
+
+unsigned integer type
+
+> 在下文中，为了严格区分"底层字节表示"与"实际数学数值", 我们引入符号 $\llbracket A \rrbracket = a$, 表示二进制数据 $A$ 所映射/解读出的真实数值为 $a$.
+
+> 如果你学过离散/数理逻辑/程序语言等相关内容, 你可能会管`A`叫做语法(Syntax)侧, 而`a`叫做语义(Semantics)侧.
+
+- 整数有无穷多个, 可计算机内存总是有限个.
+  - 内存中不可能表示任意大的整数!
+- 假设我们现在有$w$个bits可供我们表示数字:
+  - 如何表示自然数(无符号整数)?
+    - 使用常规的二进制表示, 考虑$x = [x_{w-1}, x_{w-2}, ..., x_0]$, 它表示的无符号数字正是:
+    - $\llbracket x\rrbracket_U = \sum_{i=0}^{w-1}(x_i \times 2^i)$
+  - 如何表示自然数(无符号整数)的加法?
+    - 两个 $w$ 位的无符号数相加，结果的范围是 $[0, 2^{w+1}-2]$，而这需要 $w+1$ 位来表示
+    - 如果两个数$a,b$加起来后, 最高位是$0$, 那我们的表示仍然适用!
+      - 例如: `0x10+0x01->0x11`
+    - 如果两个数$a,b$加起来后, 最高位是$1$呢? ~~那我们的表示就完蛋了~~
+---
+
+# 无符号整数数据类型
+
+unsigned integer type
+
+- 假设我们现在有$w$个bits可供我们表示数字:
+  - 如何表示自然数(无符号整数)的加法?
+    - 如果两个数$a,b$加起来后, 二进制下有$w+1$位呢?
+    - 我们可以直接丢掉最高位(溢出)! 这样剩下的就只有$w$位了.
+      - 例如(假设$w=8$): `0x10+0x11->0x01`
+    - 这实际上就是对$2^w$取模操作!
+
+
+---
+
+# 无符号整数数据类型与模运算
+
+unsigned integer type and mode
+
+假设无符号类型的两个变量$A,B$, 满足$\llbracket A\rrbracket =a, \llbracket B\rrbracket =b$. 
+
+记$add(A,B)$为二者相加的结果. 假设$a,b<2^{w}$.
+
+### 无符号加法
+
+- 如果$a+b<2^w$, 则$\llbracket add(A,B)\rrbracket=a+b$
+- 如果$a+b>2^w$, 则$\llbracket add(A,B)\rrbracket=a+b-2^w$
+
+
+### 模意义下加法
+
+- 如果$a+b<2^w$, 则$(a+b)\bmod {2^w} = a+b$
+- 如果$a+b>2^w$, 则$(a+b)\bmod {2^w} = a+b-2^w$
+
+---
+
+# 有符号整数数据类型
+
+signed integer type
+
+- 假设我们现在有$w$个bits可供我们表示数字:
+  - 如何表示负数?
+  - 如果一个数$+n=0$,那这个数就可以用来表示$-n$.
+  - 考虑加法的溢出:
+    - `0xff+0x01->0x00`
+    - 我们可以定义`0xff`为$-1$.
+  - 具体而言, 如果$\llbracket x\rrbracket_I=n$, 我们记$\llbracket (\sim x)+1\rrbracket_I=-n$.
+    - 也可以记作: $\llbracket x\rrbracket_I = - x_{w-1} \times 2^{w-1} + \sum_{i=0}^{w-2}(x_i \times 2^i)$
+  - 这就是所谓的"补码".
+
+---
+
+# 有符号数与无符号数之间的转换
+
+conversion between signed and unsigned
+
+强制类型转换保持位值不变，**只改变解释这些位的方式**
+
+- 回忆一个二进制表示 $x = [x_{w-1}, x_{w-2}, ..., x_0]$:
+  - 它代表的无符号数: $\llbracket x\rrbracket_U = \sum_{i=0}^{w-1}(x_i \times 2^i)$
+  - 它代表的有符号数: $\llbracket x\rrbracket_I = - x_{w-1} \times 2^{w-1} + \sum_{i=0}^{w-2}(x_i \times 2^i)$
+- 容易见到: 
+  - 当最高位为$0$时, 它们代表的数字相同;
+  - 当最高位为$1$时, 它们代表的数字差了$2^w$.
+- 事实上总满足: $\llbracket x\rrbracket_U\equiv \llbracket x\rrbracket_I \pmod {2^w}$
+
+---
+
+# 有符号数与无符号数之间的转换
+
+conversion between signed and unsigned
+
+![T2U&U2T](/01-Data-Representation/T2U&U2T.png)
 
 ---
 
@@ -225,7 +269,7 @@ bit shift
 <div>
 
 - 逻辑右移：左边补 0
-- 算术右移：左边补 最高位（思考：为什么？）
+- 算术右移：左边补 最高位
 
 </div>
 
@@ -239,6 +283,10 @@ bit shift
 
 C 语言：有符号数算术右移（但注意没有明确规定，只是大家都这么做）, 无符号数逻辑右移
 
+> 这使得C语言中, 无论a是有符号还是无符号, `a>>k`总等价于$\lfloor\frac{a}{2^k}\rfloor$
+
+> 注意: C语言中的除法是向$0$取整, 所以`(-3)/2 == -1`而`(-3)>>1 == -2`
+
 运算时，需要注意运算符优先级 <span class="text-sm">（如果记不住就全加上括号！）</span>
 
 例如：`1 << 2 + 3 << 4`，记忆方法：回忆大一写计概的时候的 `cout << a + b`
@@ -247,160 +295,6 @@ C 语言：有符号数算术右移（但注意没有明确规定，只是大家
 
 <!--
 -->
-
-
----
-
-# 整数编码
-
-integer encoding
-
-<div grid="~ cols-2 gap-12">
-
-<div>
-
-
-### 无符号数
-
-对向量 $x = [x_{w-1}, x_{w-2}, ..., x_0]$：
-
-$$
-\text{B2U}_w(x) = \sum_{i=0}^{w-1}(x_i \times 2^i)
-$$
-
-- $\text{B2U}_w$ 表示把二进制编码转化为非负整数
-  <br>
-  <span class="text-sm">（Binary to Unsigned）</span>  
-
-  该函数是双射，即无符号数编码具有唯一性
-
-- $\text{UMax}_w = 2^w - 1$
-
-</div>
-
-<div>
-
-### 有符号数
-
-对向量 $x = [x_{w-1}, x_{w-2}, ..., x_0]$：
-
-$$
-\text{B2T}_w(x) = - x_{w-1} \times 2^{w-1} + \sum_{i=0}^{w-2}(x_i \times 2^i) 
-$$
-
-- $\text{B2T}_w$ 表示把二进制编码转化为补码
-  <br>
-  <span class="text-sm">（Binary to Two's Complement）</span>
-
-- 当最高位为 1，整个数表示为一个负数
-- 同样具有唯一性
-
-</div>
-
-</div>
-
-
----
-
-# 整数编码
-
-integer encoding
-
-
-对于有符号数，取值范围是不对称的，典型例子 int：
-
-- $\text{TMax}_{32} = 2147483647$
-- $\text{TMin}_{32} = -2147483648$
-
-<span class="text-sm">为什么？ 0：在想我的事？</span>
-
-
-<!--
-提问学生：0 的表示的唯一性
--->
-
----
-
-# 数据的其他表示
-
-other representations
-
-### 反码
-
-最高位的权重为 $-2^{w-1} + 1$
-
-在此方法下，0 的表示有两种：$\text{000...0}$ 和 $\text{111...1}$
-
-### 原码
-
-最高位是符号位，用来确定剩下的位应该取正权还是负权
-
-$$
-\text{B2S}_w(x) = (-1)^{x_{w-1}} \times \sum_{i=0}^{w-2} x_i \times 2^i
-$$
-
-经典案例：浮点数（等会会讲）
-
-
----
-
-# 有符号数与无符号数之间的转换
-
-conversion between signed and unsigned
-
-强制类型转换保持位值不变，**只改变解释这些位的方式**
-
-<div grid="~ cols-2 gap-12">
-
-<div>
-
-### 补码→无符号数
-
-对满足 $\text{TMin}_w \leq x \leq \text{TMax}_w$ 的 $x$ 来说：
-
-- 若 $\text{TMin}_w \leq x < 0$，则 $\text{T2U}(x) = x + 2^w$
-- 若 $0 \leq x \leq \text{TMax}_w$，则   $\text{T2U}(x) = x$
-
-<br>
-
-> 小学奥数：一个叛徒等于两个坏蛋，对于负数，最高位“翻转了阵营”，从补码的代表的 $-2^{w-1}$ 变成了 $+2^{w-1}$
-
-</div>
-
-<div>
-  
-### 无符号数→补码
-
-对满足 $0 \leq x \leq \text{UMax}_w$ 的 $x$ 来说：
-
-- 若 $x > \text{TMax}_w$，则 $\text{U2T}(x) = x - 2^w$
-- 若 $0 \leq x \leq \text{TMax}_w$ 则 $\text{U2T}(x) = x$
-
-<br>
-
-> 当一个无符号数与一个有符号数进行计算时，有符号数在这个表达式中会被当做无符号数（即发生了隐式的强制类型转换）
->  
-> **例如** ：`-1 > 0u` 此为无符号的比较
-
-<span class="text-sm">（-1 在计算机中表示为全 1，即 $\text{UMax}_w$，而 0u 表示为全 0 的无符号数）</span>
-
-</div>
-
-</div>
-
-<!--
-左边：举几个例子，比如说 -1，可以打开计算器给大家展示
-右边：x > TMax_w 实际上意思就是 符号位 被占用了，所以溢出补码表示了
--->
-
----
-
-# 有符号数与无符号数之间的转换
-
-conversion between signed and unsigned
-
-![T2U&U2T](/01-Data-Representation/T2U&U2T.png)
-
 
 ---
 
@@ -419,28 +313,12 @@ extension and truncation
 
 #### 为什么对于有符号数，高位补符号位？{.mt-6.mb-2}
 
-<div grid="~ cols-2 gap-12">
-
-<div>
-
-Hint：消消乐！
-
-- 若最高位为 0，显然；
-- 若最高位为 1，则你补的一堆 1 和原先的 1 等价
-
-</div>
-
-<div>
 
 设现在位数为 $m$，补到 $n$ 位，且 $n > m$，则：
 
 $$
 -2^{n-1} + \sum_{i=m-1}^{n-2}2^i = -2^{m-1}
 $$
-
-</div>
-
-</div>
 
 ---
 
@@ -493,155 +371,6 @@ int main() {
 </div>
 </div>
 
-
-
----
-
-# 整数加减法
-
-integer addition and subtraction
-
-### 无符号数加法
-
-由于两个 $w$ 位的无符号数相加，结果的范围是 $[0, 2^{w+1}-2]$，而这需要 $w+1$ 位来表示，所以实际上：
-
-结果表示 $x+y$ 的低 $w$ 位，也即 $x + y \mod 2^w$
-
-- 当 $x + y < 2^w$ 时，结果正确；
-- 当 $x + y \geq 2^w$ 时，$x + y$ 的结果需要减去 $2^w$，才会得到实际结果，即 $x + y - 2^w$，这就是 **溢出**
-
-![overflow](/01-Data-Representation/overflow.png){.h-180px}
-
-<!--
-指一下图中哪里是溢出
--->
-
----
-
-# 整数加减法
-
-integer addition and subtraction
-
-### 有符号数加法
-
-由于两个 $w$ 位的有符号数相加，结果的范围是 $[-2^w, 2^{w}-2]$，所以实际上：
-
-- 若 $-2^{w-1} \leq x + y < 2^{w-1}$，结果正确；
-- 若 $x + y \geq 2^{w-1}$，结果需要减去 $2^w$，才会得到实际结果，即 $x + y - 2^w$，此时称为 **正溢出/上溢出**
-- 若 $x + y < -2^{w-1}$，结果需要加上 $2^w$，才会得到实际结果，即 $x + y + 2^w$，此时称为 **负溢出/下溢出**
-
-![signed_overflow](/01-Data-Representation/signed_overflow.png){.h-200px}
-
-
----
-
-# 判断溢出
-
-determine overflow
-
-### 无符号数加法
-
-- $s = x + y$，若 $s < x$ 或 $s < y$ 则溢出
-
-<br>
-
-### 有符号数加法
-
-<div grid="~ cols-2 gap-12">
-
-<div>
-
-- $s = x + y$，若 $x > 0$ 且 $y > 0$ 且 $s \leq 0$，则正溢出；
-- 若 $x < 0$ 且 $y < 0$ 且 $s \geq 0$，则负溢出
-
-
-为什么只有这两种情况？
-
-</div>
-
-<div>
-
-![signed_overflow](/01-Data-Representation/signed_overflow.png){.h-250px}
-
-</div>
-
-</div>
-<!--
-想要溢出，必须两个加数符号相同且与结果相异
-一正一负溢出不了
--->
-
----
-
-# 判断溢出
-
-determine overflow
-
-关于整数加减法/溢出的一个有趣事实：这里的加法是个 **环**（阿贝尔群）！
-
-无论你怎么改变次序，它总是可以轮换回来~
-
-这是一个做题很方便的技巧！
-
-<div grid="~ cols-2 gap-12">
-
-<div>
-
-#### 证明： `~x + 1 = -x` (`x != TMin`)
-
-证：
-
-$$
-\begin{aligned}
-\sim x + 1 &= -x \\
-\sim x + x &= -1 \\
-\end{aligned}
-$$
-
-
-</div>
-
-<div>
-
-#### 证明： $\text{TMax} + 1 = \text{TMin}$
-
-证：想想消消乐
-
-$$
-\begin{aligned}
-0111...1111 + 1 = 1000...0000
-\end{aligned}
-$$
-
-</div>
-
-</div>
-
-<!--
-为什么排除在下一页说明
--->
-
----
-
-# 补码的非运算
-
-two's complement negation
-
-对满足 $\text{TMin}_w \leq x \leq \text{TMax}_w$ 的 $x$ 来说：
-
-- 若 $x = \text{TMin}_w$，则 $-x = \text{TMin}_w$
-- 否则，$-x = -x$（算术上的）
-
-注：这里式子左边的 $-x$ 是 **算数逆元**
-
-- 对于 $x \neq \text{TMin}_w$ 时，本身 $-x$ 也在表示范围内，结论是平凡的
-- 对于 $x = \text{TMin}_w$ 时，$-x$ 不在表示范围内。
-  
-  但是，两个 $\text{TMin}_w$ 相加，溢出到了上一位，结果是 0，所以此时我们说 $\text{TMin}_w$ 的算数逆元就是它自身
-
-回忆：刚才说的 `~x + 1 = -x`
-
-
 ---
 
 # 乘除法
@@ -662,38 +391,89 @@ multiplication and division
 
 此时，**相当于左移**
 
+--- 
+
+# 整数类型的加/减/乘
+
+add/sub/mul
+
+根据我们上面讨论的内容, 我们知道, 整数类型的加/减/乘 总可以视作是$\bmod {2^w}$意义下的运算, 根据模运算的性质, 我们立刻就有:
+
+- 加法交换律: $\llbracket A+B \rrbracket=\llbracket B+A \rrbracket$
+- 加法结合律: $\llbracket (A+B)+C \rrbracket=\llbracket A+(B+C) \rrbracket$
+- 乘法交换律: $\llbracket A*B \rrbracket=\llbracket B*A \rrbracket$
+- 乘法结合律: $\llbracket (A*B)*C \rrbracket=\llbracket A*(B*C) \rrbracket$
+- 乘法分配律: $\llbracket (A+B)*C \rrbracket=\llbracket (A*C)+(B*C) \rrbracket$
+
+---
+
+# 整数类型的除/模
+
+div/mod
+
+除法/取模的实现比较特殊, 你总可以认为:
+
+- 除法的结果是向零取整, 具体地:
+  - 如果`A,B`同号, 则$\llbracket A/B\rrbracket=\lfloor\frac{\llbracket A\rrbracket}{\llbracket B\rrbracket}\rfloor$
+  - 如果`A,B`异号, 则$\llbracket A/B\rrbracket=\lceil\frac{\llbracket A\rrbracket}{\llbracket B\rrbracket}\rceil$
+- 取模总是实现为$\llbracket A\bmod B\rrbracket=\llbracket A- (A/B)*B\rrbracket$
+- `7/3 == 2, 7%3 == 1`
+- `(-7)/3 == -2, (-7)%3 == -1`
+- `7/(-3) == -2, 7%(-3) == -1`
+- `(-7)/(-3) == 2, (-7)%(-3) == 1`
+
+---
+
+# 判断溢出
+
+determine overflow
+
+<div grid="~ cols-2 gap-12">
+
+<div>
+
+### 无符号数加法{.mb-2}
+
+- $s = x + y$，若 $s < x$ 或 $s < y$ 则溢出
+
+### 有符号数加法{.mt-4.mb-2}
+
+- $s = x + y$，若 $x > 0$ 且 $y > 0$ 且 $s \leq 0$，则正溢出；
+- 若 $x < 0$ 且 $y < 0$ 且 $s \geq 0$，则负溢出
+
+为什么只有这两种情况？{.my-2}
+
+</div>
+
+<div class="flex flex-col items-center gap-6">
+<img src="/01-Data-Representation/overflow.png" alt="overflow" class="h-170px" />
+<img src="/01-Data-Representation/signed_overflow.png" alt="signed_overflow" class="h-170px" />
+</div>
+
+</div>
 
 
 ---
 
-# 乘除法
+# 数据的其他表示
 
-multiplication and division
+other representations
 
-特别注意：除法这里以二的幂次作为除数，也只有此时可以采用右移来取巧。
+### 反码
 
-### 无符号数除法
+最高位的权重为 $-2^{w-1} + 1$
 
-无符号数 $u$ 除以 $2^k$：将 $u$ **逻辑右移** $k$ 位
+在此方法下，0 的表示有两种：$\text{000...0}$ 和 $\text{111...1}$
 
-（此时恰好就是舍入到 0 的）
+### 原码
 
-### 有符号数除法{.mt-6.mb-1}
+最高位是符号位，用来确定剩下的位应该取正权还是负权
 
-直接右移 `x >> k` 得到的是 **向下舍入** 的结果，而不是正常来讲的向 0 取整。
+$$
+\text{B2S}_w(x) = (-1)^{x_{w-1}} \times \sum_{i=0}^{w-2} (x_i \times 2^i)
+$$
 
-例如：`-3 / 2 = -1`，而 `-3 >> 1 = -2`
-
-向 0 取整：`(x < 0) ? (x + (1 << k) - 1 : x) >> k`
-
-证明见书 P73 ~~助教之前写权值线段树的时候就遇到过此类问题，使用向下舍入就没问题但向 0 舍入就寄了~~
-
-<!--
-为什么是向下舍入？因为后面都是正权！
-
-为什么下面加偏置就对？对于恰好整除不用管，否则只要有一个 1 就会向上取 1。
--->
-
+经典案例：浮点数
 
 ---
 
