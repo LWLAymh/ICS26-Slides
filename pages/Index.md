@@ -54,12 +54,12 @@ The last comment block of each slide will be treated as slide notes. It will be 
 2. [机器语言](https://lwlaymh.github.io/ICS26-Slides/02)
 3. [处理器体系结构](https://lwlaymh.github.io/ICS26-Slides/03)
 4. [存储器层次结构](https://lwlaymh.github.io/ICS26-Slides/04)
-5. [编译与优化](https://lwlaymh.github.io/ICS26-Slides/05)
 
 </div>
 
 <div>
 
+5. [编译与优化](https://lwlaymh.github.io/ICS26-Slides/05)
 6. [异常控制流与系统级 I/O](https://lwlaymh.github.io/ICS26-Slides/06)
 7. [虚拟内存](https://lwlaymh.github.io/ICS26-Slides/07)
 8. [网络](https://lwlaymh.github.io/ICS26-Slides/08)
