@@ -52,20 +52,18 @@ The last comment block of each slide will be treated as slide notes. It will be 
 0. [课程介绍](https://lwlaymh.github.io/ICS26-Slides/00)
 1. [数据表示](https://lwlaymh.github.io/ICS26-Slides/01)
 2. [机器语言](https://lwlaymh.github.io/ICS26-Slides/02)
-3. [处理器体系结构 1](https://lwlaymh.github.io/ICS26-Slides/03)
-4. [处理器体系结构 2 + 存储器层次结构](https://lwlaymh.github.io/ICS26-Slides/04)
-5. [高速缓存 + 程序性能优化](https://lwlaymh.github.io/ICS26-Slides/05)
+3. [处理器体系结构](https://lwlaymh.github.io/ICS26-Slides/03)
+4. [存储器层次结构](https://lwlaymh.github.io/ICS26-Slides/04)
+5. [编译与优化](https://lwlaymh.github.io/ICS26-Slides/05)
 
 </div>
 
 <div>
 
-6. [链接 + ECF](https://lwlaymh.github.io/ICS26-Slides/06)
-7. [系统级 I/O](https://lwlaymh.github.io/ICS26-Slides/07)
-8. [虚拟内存](https://lwlaymh.github.io/ICS26-Slides/08)
-9. [网络](https://lwlaymh.github.io/ICS26-Slides/09)
-10. [并发](https://lwlaymh.github.io/ICS26-Slides/10)
-11. [同步](https://lwlaymh.github.io/ICS26-Slides/11)
+6. [异常控制流与系统级 I/O](https://lwlaymh.github.io/ICS26-Slides/06)
+7. [虚拟内存](https://lwlaymh.github.io/ICS26-Slides/07)
+8. [网络](https://lwlaymh.github.io/ICS26-Slides/08)
+9. [并发与同步](https://lwlaymh.github.io/ICS26-Slides/09)
 
 </div>
 
