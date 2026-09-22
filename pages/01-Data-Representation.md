@@ -476,6 +476,14 @@ $$
 
 ---
 
+# 其它语言中的整数类型
+
+- Rust: 摒弃C语言中混乱的类型名, 统一使用形如`i32,u16`形式的整数类型名
+- Python: `int`类型原生支持高精度, 底层是一个使用可变长数组的结构体PyLongObject, 每个数字形如$\text{Value} = \sum_{i=0}^{N-1} \text{ob\_digit}[i] \times (2^{30})^i$
+- Haskell: 显式区分硬件原生类型(Int)和高精度类型(Integer), 后者调用C语言里的GMP库实现
+
+---
+
 # 浮点数表示
 
 floating point
@@ -724,6 +732,39 @@ exception
 - Inexact：舍入结果
 
 更多详情请见 [IEEE754](https://en.wikipedia.org/wiki/IEEE_754) 异常处理
+
+---
+
+# 补充: 模型训练中的浮点数
+
+除了我们刚刚讨论的float类型(或称FP32)和double类型(或称FP64), 近年还涌现出一大批针对大模型训练设计的浮点数类型:
+
+- IEEE 754标准本身就规定了FP16浮点类型, 它由1个符号位，5位指数位和10位小数位组成
+
+- 近年也开始流行FP8浮点类型标准, 分为E4M3(常用于前向传播的权重和激活)和E5M2(常用于反向传播的梯度)两种.
+
+> 两个浮点数做乘法时, 最后面的尾数几乎一定要被截断, 可它们还在白白参与运算
+
+- 英伟达提出了TF32浮点类型, 它在内存中以FP32格式存储, 并以FP32规则参与加法运算. 但当它将要参与乘法运算时, 它将尾数位截断到$10$位并做乘法, 结果仍以FP32格式保存
+
+> 一些情景对尾数精度要求不高, 但要求可以表示很大范围的数字
+
+- Google Brain提出了BF16浮点类型, 它由1个符号位，8位指数位（和FP32一致）和7位小数位（低于FP16）组成
+
+---
+
+# 补充: 模型训练中的浮点数
+
+![FPformat](/01-Data-Representation/FPformat.png)
+
+---
+
+# 补充: 模型训练中的浮点数
+
+- 《AWQ: Activation-aware Weight Quantization for On-Device LLM Compression and Acceleration》
+- 《Microscaling Floating Point Formats for Large Language Models》
+- 《BitNet: Scaling 1-bit Transformers for Large Language Models》
+- 《The Era of 1-bit LLMs: All Large Language Models are in 1.58 Bits》
 
 ---
 
