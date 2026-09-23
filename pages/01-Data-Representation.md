@@ -834,7 +834,7 @@ Integral/Type Promotion
 
 <br>
 
-我猜你答不对下面这个程序的输出：
+下面这个程序的输出是？
 
 ```c
 #include <stdio.h>
@@ -926,7 +926,6 @@ Integral/Type Promotion
 <div grid="~ cols-2 gap-12">
 <div>
 
-让我来看看你真的学懂了没有
 
 请分别回答以下程序在 ILP32 和 LP64 数据模型下的输出是什么
 
