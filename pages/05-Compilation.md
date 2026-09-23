@@ -8,7 +8,7 @@ theme: academic
 title: "05-Compilation"
 highlighter: shiki
 info: |
-  ICS 2025 Fall Slides
+  ICS 2026 Fall Slides
 # apply unocss classes to the current slide
 presenter: true
 class: text-center
@@ -272,8 +272,8 @@ ELF 可重定位目标文件
 │   ├── .data（已初始化数据）
 │   ├── .bss（未初始化数据）
 │   ├── .symtab（符号表）
-│   ├── .rel.text（重定位信息）
-│   ├── .rel.data（重定位信息）
+│   ├── .rela.text（重定位信息）
+│   ├── .rela.data（重定位信息）
 │   ├── .debug（调试信息）
 │   └── .strtab（字符串表）
 │
@@ -343,7 +343,7 @@ Relocatable Object File
 
 `.data`：<span text-sky-5> 已初始化的全局与静态 C 变量</span>
 
-`.bss`：<span text-sky-5> 未初始化的全局和静态 C 变量，以及所有被初始化为 0 的全局和静态 C 变量</span><br><span class="text-sm text-gray-5">（Block Storage Start / Better Save Space）</span>
+`.bss`：<span text-sky-5> 未初始化的全局和静态 C 变量，以及所有被初始化为 0 的全局和静态 C 变量</span><br><span class="text-sm text-gray-5">（Block Started by Symbol）</span>
 
 <span class="text-sm text-gray-5">
 
@@ -376,9 +376,9 @@ Relocatable Object File
 
 `.symtab`：符号表 <span class="text-sm text-gray-5">（symbol table）</span>，存放定义和引用的函数与全局变量信息
 
-`.rel.text`：重定位信息 <span class="text-sm text-gray-5">（relocate text）</span>
+`.rela.text`：重定位信息 <span class="text-sm text-gray-5">（relocation with addend for text）</span>
 
-`.rel.data`：重定位信息 <span class="text-sm text-gray-5">（relocate data）</span>，（未初始化或为 0 的变量不需要重定位）
+`.rela.data`：重定位信息 <span class="text-sm text-gray-5">（relocation with addend for data）</span>，（未初始化或为 0 的变量不需要重定位）
 
 `.strtab`：字符串表 <span class="text-sm text-gray-5">（string table）</span> ，包括： 
 
@@ -989,7 +989,7 @@ Relocation Entries
 
 所以，它就会生成一个**重定位条目**，告诉 **链接器** 将目标文件合并成可执行文件时如何修改这个引用。
 
-代码的重定位条目放在 `.rel.text` 中，数据的重定位条目放在 `.rel.data` 中。
+代码的重定位条目放在 `.rela.text` 中，数据的重定位条目放在 `.rela.data` 中。
 
 ### ELF 重定位条目的格式{.mb-2}
 
@@ -1166,7 +1166,7 @@ r.type = R_X86_64_32
 r.addend = 0
 ```
 
-- `r.offset`：`call` 指令第二个字节与 `main` 函数起始地址的偏移量 = `0xa`
+- `r.offset`：引用 `array` 地址的 4 字节立即数字段与 `main` 函数起始地址的偏移量 = `0xa`
 - `r.refptr`：要修改的地址，`s + r.offset` = `main + 0xa` = `0xa`
 - `r.addend`：对于绝对重定位，设置为 0。
 - `ADDR(r.symbol)`：真实要得到的地址，也即 `array` 的运行时地址 = `0x601018`
@@ -1198,9 +1198,9 @@ Executable Object File
 
 **段**：链接器根据目标文件中 **属性相同的多个节合并后的节的集合**{.text-sky-5}，这个集合称为段。
 
-- `.init` 段：比可重定位目标文件多出来的，包含初始代码（`_init` 函数），会在程序开始时调用。
-- `.text` `.rodata` `.data` 段：与同名节对应，已被重定位到最终的运行时内存地址。
-- `.rel.text` 和 `.rel.data` 节：不再存在，因为已经完全链接。
+- `.init` 节：包含初始化代码（`_init` 函数），会在程序开始时调用。
+- `.text` `.rodata` `.data` 节：已被重定位到最终的运行时内存地址，并按访问属性组织到相应的段中。
+- `.rela.text` 和 `.rela.data` 节：不再存在，因为已经完全链接。
 
 </div>
 
@@ -1230,12 +1230,12 @@ Loading an Executable Object File
 
 - **代码段**：从地址 `0x400000` = $2^{22}$ 开始，后面是数据段
 - **堆内存**：由 `malloc` 分配，运行时堆在数据段之后
-- **用户栈**：从最大合法用户地址 $2^{48} - 1$ 向下增长
-- **内核区**：从地址 $2^{48}$ 开始，用于内核代码和数据段
+- **用户栈**：位于用户地址空间高端，向低地址增长
+- **内核区**：位于高半部的内核虚拟地址空间，用于内核代码和数据
 
 `_start`（入口点） → `_libc_start_main`（定义在 libc.so 中） → `main`
 
-**加载**：将可执行目标文件的代码和数据复制到内存。
+**加载**：为可执行文件的代码和数据建立虚拟内存映射，并在访问时按需调入页面。
 
 </div>
 
@@ -1248,9 +1248,9 @@ Loading an Executable Object File
 
 <!-- 
 
-实际上存在 虚拟内存映射，以及 ASLR（每次程序运行时，这些区域的**地址都会改变**，但**相对位置不变**）
+实际上存在虚拟内存映射和 ASLR；可执行文件、共享库、栈等区域的基址可以被随机化，同一映射内部的相对偏移保持不变。
 
-libc.so：一定会被链接。
+动态链接的 C 程序通常会使用 `libc.so`。
 
 -->
 
@@ -1268,8 +1268,8 @@ Dynamic Linking Shared Libraries
 共享库：**在运行时被动态加载和链接的库文件**{.text-sky-5}，通常以 `.so`（Linux）或 `.dll`（Windows）为后缀。
 
 - 节省资源：避免静态库复制很多次
-- 简化更新：更新共享库只需替换库文件，无需重新编译所有依赖的程序
-- 动态链接：运行时加载库文件，多个程序共享同一份库文件
+- 简化更新：接口兼容时，可以替换共享库而无需重新链接所有依赖程序
+- 动态链接：运行时加载库文件，多个程序可以共享库代码的物理内存页
 
 C 标准库 `libc.so` 通常是动态链接的。
 
@@ -1312,7 +1312,7 @@ Dynamic Linking Shared Libraries
 
 - **链接器**：在编译阶段之后工作，将多个目标文件和库文件链接成一个可执行文件或库文件。
 - **加载器**：在程序执行阶段工作，将可执行文件加载到内存并准备好执行环境。
-- **动态链接器**：在加载器将程序加载到内存后、程序开始执行前工作，负责在运行时加载动态库并解析符号（重定位）。
+- **动态链接器**：负责加载动态库、完成重定位并解析符号；采用延迟绑定时，部分符号会在第一次调用时解析。
 
 </div>
 
@@ -1341,7 +1341,7 @@ Position Independent Code
 
 <span class="text-sm text-gray-5">
 
-需要使用 `-fpic` （flag position independent code）选项编译共享库
+需要使用 `-fpic` 选项生成位置无关代码
 
 </span>
 
@@ -1448,7 +1448,7 @@ callq 0x4005c0 # call addvec()
 
 Library Interposition
 
-**打桩**：在运行时替换库函数的行为。
+**打桩**：用自定义函数替换或包装库函数的行为。
 
 打桩机制有三种主要方法：
 - 编译时打桩
@@ -1473,7 +1473,7 @@ gcc -I. -o intc int.c mymalloc.o
 - `-I.`：告诉编译器在当前目录（`.`）中查找头文件（Include）
 - `-o intc`：指定输出文件名为 `intc`
 - `int.c`：源文件
-- `mymalloc.o`：自定义动态库
+- `mymalloc.o`：自定义目标文件
 
 这样做后，会在搜索 `malloc` 时，优先搜索 `mymalloc.o` 中的 `malloc`，然后再搜索通常的系统目录。
 
@@ -1550,7 +1550,7 @@ LD_PRELOAD="./mymalloc.so" ./myprogram
 
 - `-shared`：生成共享库
 - `-fpic`：生成位置无关代码，**这是共享库所必需的，因为共享库可以加载到内存中的任何位置**{.text-sky-5}
-- `-ldl`：链接动态链接器库，`libdl` 是动态链接器库
+- `-ldl`：链接 `libdl`，以使用 `dlopen`、`dlsym` 等动态加载接口
 - `LD_PRELOAD`：环境变量，指定在运行程序时加载的自定义动态库
 
 ---

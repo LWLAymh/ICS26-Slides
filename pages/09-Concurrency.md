@@ -8,7 +8,7 @@ theme: academic
 title: "09-Concurrency"
 highlighter: shiki
 info: |
-  ICS 2025 Fall Slides
+  ICS 2026 Fall Slides
 # apply unocss classes to the current slide
 presenter: true
 class: text-center
@@ -178,7 +178,7 @@ Concurrent based on processes
 ![conc_based_on_processes](/09-Concurrency/conc_based_on_processes.png){.mx-auto.h-50}
 
 <!--
-进程上下文：堆/栈/页表、CPU 寄存器现场、内核为该进程维护的执行状态（PCB / task_struct 等）
+进程上下文：CPU 寄存器现场、内核栈、地址空间映射，以及内核为该进程维护的执行状态（PCB / task_struct 等）
 -->
 
 ---
@@ -190,7 +190,7 @@ Concurrent based on processes - Key points
 - 必须在父子进程中都适当关闭套接字/描述符（减少引用计数），否则会导致文件描述符泄露
   - 父进程中关闭 `connfd`：不再需要同客户端通信，那是子进程的事情
   - 子进程中关闭 `listenfd`：不再需要监听新的连接，那是父进程的事情
-  - <span class="text-sky-5">复习：`fork` 之后，父子进程的文件描述符是共享的</span>
+  - <span class="text-sky-5">复习：`fork` 之后，父子进程各有描述符表副本，但对应描述符指向同一个打开文件表项</span>
 - 父进程必须适当使用 `waitpid` 回收子进程，否则会导致僵尸进程
   - 修改 `sigchld_handler`，在其中调用 `waitpid` 回收子进程，每次尽可能回收多个子进程
   ```c
@@ -376,7 +376,8 @@ Concurrent based on I/O multiplexing - Programming implementation
 ```c
 #include <sys/select.h>
 /* fdset 核心：位向量 */
-int select(int n, fd_set *fdset, NULL, NULL, NULL);
+int select(int nfds, fd_set *readfds, fd_set *writefds,
+           fd_set *exceptfds, struct timeval *timeout);
 /* 返回：如果有准备好的描述符，则返回非 0 值标记准备好的描述符个数；返回 -1 如果出现错误 */
 FD_ZERO(fd_set *fdset); /* 全部置零（清除） */
 FD_CLR(int fd, fd_set *fdset); /* 单个置零（移除对一个文件描述符的监听） */
@@ -485,8 +486,8 @@ Concurrent based on I/O multiplexing - Advantages and disadvantages
 为什么 I/O 多路复用更具有性能优势？
 
 1. 无论线程切换还是进程切换，都会涉及到 **上下文切换**，而上下文切换是非常耗费资源的。
-2. I/O 多路复用的并发编程，只需要一个进程，因此不存在进程切换，也就不存在上下文切换。
-3. 内存使用更高效：线程和进程切换涉及到更多的内存分配和管理（栈、堆等），而 I/O 多路复用只需要为多个 I/O 操作维护少量的数据结构，**内存使用效率更高**。
+2. I/O 多路复用只用一个事件循环处理多个连接，不需要为每个连接创建和切换一个进程或线程。
+3. 内存使用更高效：不需要为每个连接维护独立的进程或线程栈，只需维护连接状态等数据结构。
 
 ---
 
@@ -555,7 +556,7 @@ Concurrent based on threads
 
 - 主线程：进程生命周期内的第一个线程
 - 对等线程：由同一进程创建的线程，包括主线程
-  > 对等线程可以互相杀死、互相访问对方的栈（共享在同一进程的地址空间中）
+  > 对等线程可以请求取消其他线程，也可以通过指针访问对方的栈（同处一个进程的地址空间中）
 - 对等线程池：无父子关系的对等线程的集合
 - 线程例程：线程的执行体，包括线程的代码和本地数据，类似于进程的 `main` 函数
 
@@ -589,8 +590,9 @@ Concurrent based on threads - Programming implementation
 <div grid="~ cols-2 gap-8">
 <div>
 
-```c{all|4,5,10-14|6|11}
-#include "csapp.h" void *thread(void *vargp);
+```c{all|5,6,11-15|7|12}
+#include "csapp.h"
+void *thread(void *vargp);
 
 int main() {
   pthread_t tid;
@@ -600,7 +602,7 @@ int main() {
 }
 
 void *thread(void *vargp) {
-  pthread_detach(pthread_self());
+  // 若不使用 pthread_join，可在这里调用 pthread_detach(pthread_self());
   printf("Hello, world!\n");
   return NULL;
 }
@@ -625,7 +627,7 @@ int pthread_create(
 );
 ```
 
-1. `pthread_t *tidp`：存储线程 ID 的地方，`pthread_t` 是线程 ID 结构体
+1. `pthread_t *tidp`：存储线程 ID 的地方，`pthread_t` 是表示线程 ID 的类型
 2. `const pthread_attr_t *attr`：线程属性，通常为 `NULL`
 3. `void *(*start_routine)(void *)`：线程例程，注意签名：
     - 返回值：`void *`，是一个指针
@@ -652,8 +654,6 @@ int pthread_join(pthread_t tid, void **thread_return);
 `pthread_join` 函数会阻塞，直到线程 `tid` 终止
 
 它将线程例程返回的通用指针放到为 `thread_return` 指向的位置，然后回收已终止线程的内存资源。
-
-“回收” 这一操作发生在从内核态中返回到用户态时，也即在 `pthread_join` 给出返回值之前的内核态中。
 
 </div>
 
@@ -727,7 +727,7 @@ int pthread_cancel(pthread_t tid);
 
 在多线程环境中，如果多个线程同时尝试初始化某个资源（例如，全局变量、配置文件、数据库连接等），可能会导致竞争条件（race condition）。
 
-内部实现是原子操作的互斥锁，因此可以保证函数只被执行一次。
+`pthread_once` 使用同步机制保证初始化函数只被执行一次。
 
 </div>
 
@@ -742,7 +742,7 @@ int pthread_cancel(pthread_t tid);
 </div>
 
 - `exit` 终止当前进程，自然会*立即*终止进程的所有线程
-- **若主线程调用 `pthread_exit`，它会等待所有其他对等线程终止，然后再终止主线程和整个进程**{.text-sky-5}
+- **若主线程调用 `pthread_exit`，主线程立即终止，但进程会继续运行，直到最后一个线程终止**{.text-sky-5}
 
 </div>
 
@@ -756,7 +756,7 @@ int pthread_cancel(pthread_t tid);
 
 </div>
 
-可以终止任意对等线程，亦可以终止自身（以 `pthread_self()` 获取自身线程 ID）
+可以向任意对等线程或自身发送取消请求；是否以及何时终止取决于目标线程的取消状态和取消点
 
 </div>
 
@@ -1018,11 +1018,11 @@ misc
 
 Synchronization
 
-**竞争**：多个线程同时访问 / 修改共享资源，可能会引发一些问题
+**竞争**：多个线程对共享资源的交错访问使程序结果依赖调度顺序
 
 - 原因：线程共享地址空间，不同线程可能同时操作同一变量
 
-**原子**：一旦开始就无法被打断的操作
+**原子**：对其他线程表现为不可分割、不会暴露中间状态的操作
 
 - 一行代码可能翻译成若干行汇编代码，例: `i++` 翻译成汇编 `mov, add, mov`，一般的变量不具有原子性
 
@@ -1044,9 +1044,9 @@ Synchronization
 
 Semaphore
 
-**信号量**：一种具有 **非负整数值的全局变量**{.text-sky-5}，只能由两种特殊的操作处理（P 和 V）。
+**信号量**：一种具有 **非负整数值的同步对象**{.text-sky-5}，只能由两种特殊的操作处理（P 和 V）。
 
-其目的是 **保证互斥访问**，从而保证线程化程序正确执行，禁止不安全的执行轨迹。
+它可以用于 **互斥访问、资源计数和线程同步**，从而约束程序的执行轨迹。
 
 <div grid="~ cols-2 gap-12">
 <div>
@@ -1064,9 +1064,9 @@ Semaphore
 
 #### `V(s)` 操作
 
-V 操作将 $s$ 加 1，若会导致超过上限，则无事发生
+V 操作将 $s$ 加 1。
 
-如果有任何线程阻塞在 P 操作等待 $s$ 变成非零，那么 V 操作会唤醒等待队列中的某一个线程，**具体哪个由实现/调度策略决定，不保证公平**，然后该线程将 $s$ 减 1，完成它的 P 操作。
+如果有线程阻塞在 P 操作上，V 操作会唤醒等待队列中的某一个线程，**具体哪个由实现/调度策略决定，不保证公平**；被唤醒的线程取得资源后完成 P 操作。
 
 V 操作是 **非阻塞**{.text-sky-5} 的，有没有 P 在等对 V 无所谓。
 
@@ -1095,7 +1095,7 @@ Semaphore usage notes
 
 **死锁**
 
-- 简单粗暴地判断：两个线程, 一个先 $P(A)$ 后 $P(B)$，一个先 $P(B)$ 后 $P(A)$，（中间无释放，没有用其他信号量分隔），必然死锁
+- 简单粗暴地判断：两个线程，一个先 $P(A)$ 后 $P(B)$，另一个先 $P(B)$ 后 $P(A)$，（中间无释放，没有用其他信号量分隔），就存在死锁的可能
 - 若 $P$ 操作持有顺序和 $V$ 操作释放顺序倒序，即构成 $P(s_1) \to P(s_2) \to V(s_2) \to V(s_1)$，则一般不会死锁
 - 对于使用二元信号量来实现互斥时，**互斥锁加锁顺序原则**：给定所有互斥操作的一个全序，如果每个线程都是以一种顺序获得互斥锁并以相反的顺序释放，那么这个程序就是无死锁的。
 
@@ -1326,8 +1326,8 @@ void writer(void)
 - 竞争的模拟来写成了 `while` 循环（而非多线程）
 - 使用 `mutex` 信号量来保护对于全局变量 `readcnt` 的访问
 - 使用 `w` 信号量来保证同一时间最多只有一个写者，但是可以有多个读者（注意顺序！）
-- 通过在读者内判断 `readcnt` 的数量，来决定是否作为读者全体，大发慈悲释放 `w` 锁让写者进入
-- 看似读者优先写者，但这个优先级很弱，所以既可以造成读者饥饿，也可以造成写者饥饿
+- 通过在读者内判断 `readcnt` 的数量，来决定是否作为读者全体释放 `w` 锁让写者进入
+- 这是较弱的读者优先；在信号量不保证公平时，读者和写者都可能饥饿
 
 </v-clicks>
 
@@ -1639,12 +1639,12 @@ void safe_ctime(){
 
 Reentrant functions
 
-**可重入函数**：被多个线程调用时，不会引用任何共享数据。
+**可重入函数**：执行尚未结束时再次进入该函数，仍能正确工作；它不依赖共享的可变状态。
 
 注意：可重入和线程安全并不等价！
 
 - 显式可重入：完全使用本地自动栈变量，在线程上下文切换时能保证切换回来的时候 “一切如初”
-- 隐式可重入：要共享的东西使用指针传递，小心处理，保证对于线程是唯一的，**这使得这个数据不再是线程间共享的**{.text-sky-5}
+- 隐式可重入：通过指针传入状态，并保证每个调用者传入自己的对象，**使该状态不在线程间共享**{.text-sky-5}
 
 <div grid="~ cols-2 gap-8">
 <div>
@@ -1652,7 +1652,7 @@ Reentrant functions
 ```c
 /* 显式可重入 */
 /* 自己玩自己的，别的线程和我无关 */
-void reentrant_function() {
+int reentrant_function() {
     int a = 1;
     int b = 1;
     for (int i = 0; i < 100; i++) {
@@ -1699,7 +1699,7 @@ Recap
 
 - 线程安全：一个函数被多个并发线程反复地调用时，它会一直产生正确的结果
     - 末尾加 `_r` 表示是函数的线程安全版本
-- 可重入：被多个线程调用时，不会引用任何共享数据
+- 可重入：执行尚未结束时再次进入，仍能正确工作，并且不依赖共享的可变状态
 
 线程安全但不可重入的函数：
 
@@ -2077,7 +2077,7 @@ Recap of Semaphores
 2. 连续多个 `V` 操作的时候，无所谓 `V` 操作的顺序，因为 `V` 操作永不阻塞
 3. 做题的时候主要考虑 `P` 操作的顺序要能够保证不会死锁
 4. 做题的时候可以显式将 `P` 翻译为对应变量 `--`，`V` 翻译为对应变量 `++`，观察语义，确定你的代码没有问题
-5. 单个线程里 `P` 操作数不要求等于 `V` 操作数，但一整个流程过下来要求 `P` 操作数等于 `V` 操作数
+5. 对互斥锁，每次成功的 `P` 最终都应有对应的 `V`；对计数信号量，P/V 可以由不同线程完成，净变化反映资源数量的变化
 
 ---
 

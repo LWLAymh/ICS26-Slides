@@ -8,7 +8,7 @@ theme: academic
 title: "08-Network"
 highlighter: shiki
 info: |
-  ICS 2025 Fall Slides
+  ICS 2026 Fall Slides
 # apply unocss classes to the current slide
 presenter: true
 class: text-center
@@ -427,7 +427,7 @@ Internet
 
 Key points：
 
-- 主机集合被映射为一组 32 位的 **IP 地址**{.text-sky-5}
+- 网络接口使用 32 位的 **IPv4 地址**{.text-sky-5} 标识
 - 这组 IP 地址被映射为一组称为因特网 **域名**{.text-sky-5}（Internet domain name）的标识符
 - 因特网主机上的进程能够通过连接（connection）和任何其他因特网主机上的进程通信。
 
@@ -451,7 +451,7 @@ Internet
 
 **IP协议**（Internet Protocol，互联网协议）：
 
-- 它提供了一种基本的命名方法和传递机制（给每台电脑分配一个唯一的 32 位 IP 地址，并负责把数据包（或者叫数据宝，Datagram）送到正确的地址）
+- 它提供了一种基本的寻址和传递机制（用 32 位 IPv4 地址标识网络接口，并负责把数据包，也叫数据报 Datagram，送往目的地址）
 - 它是不可靠的（不保证数据包一定会到达目的地，也不负责重传丢失的数据包）
 
 **UDP协议**（User Datagram Protocol，用户数据报协议）是对 IP 协议的扩展：
@@ -729,7 +729,7 @@ Internet domain name
 
 ### 端口{.my-4}
 
-表示服务类型，由 `/etc/services` 文件维护
+端口号用于标识主机上的服务端点；`/etc/services` 记录常见服务名与端口号的对应关系
 
 - 22：SSH 远程登录
 - 80：HTTP Web 端口
@@ -755,9 +755,7 @@ Ports in practice
 <div text-sm>
 
 - **端口号是 16 位整数**，范围 0–65535
-- 在一台主机上：
-  - 同一时刻，一个端口号通常只会被一个进程使用
-  - 不同进程使用不同端口号来区分自己
+- 服务器通常在一个固定端口上监听；同一服务器端口可以同时承载多个 TCP 连接
 
 常见分类：
 
@@ -968,7 +966,7 @@ IP 地址结构中存放的地址总是以（大端法）网络字节顺序存�
 <div col-span-2>
 
 ```c
-/* IP 地址结构，2B */
+/* IPv4 地址结构，4B */
 struct in_addr {
     uint32_t  s_addr; /* 网络字节顺序的地址 (大端序) */
 }; 
@@ -1069,8 +1067,8 @@ Socket interface
 <v-clicks text-sm>
 
 1. 为了得到连接对方的信息，我们需要先用 `getaddrinfo` 获取对方的网络连接信息。
-2. 然后我们需要用 `socket` 创建一个套接字，但是这只是填入了对方的基础信息，我们不确定对方的状态，所以此时套接字是 **不可用**{.text-sky-5} 的。
-3. 我们需要调用 `connect` 来尝试建立连接，若能正常建立，则得知此时套接字是 **可用**{.text-sky-5} 的。
+2. 然后用 `socket` 创建一个尚未连接的套接字；此时还没有设置对端地址。
+3. 调用 `connect` 指定服务器地址并尝试建立连接；成功后即可通过该套接字通信。
 4. 然后我们就可以调用 `rio_writen` 和 `rio_readlineb` 来发送和接收数据了。
 5. 最后我们调用 `close` 关闭套接字，终止连接，释放描述符使之可以被重用。
 
@@ -1129,7 +1127,7 @@ void freeaddrinfo(struct addrinfo *res);
 <div grid="~ cols-2 gap-8">
 <div text-sm>
 
-- `host`：主机名，可以是 `127.0.0.1` 或 `localhost`，域名或点分制都可以，甚至可以是 `NULL`，代表监听本机通配地址 `0.0.0.0`（监听所有网络接口）
+- `host`：主机名，可以是 `127.0.0.1`、`localhost`、域名或点分十进制地址；设置 `AI_PASSIVE` 时传入 `NULL` 可得到本机通配地址
 - `service`：服务名，可以是 `80`（十进制端口号）或 `http`，端口号或服务名都可以
 - `hints`：提示信息，控制行为
 - `res`：地址信息链表，存放结果
@@ -1222,7 +1220,7 @@ int listen(int sockfd, int backlog);
 ```
 
 - `sockfd`：套接字描述符
-- `backlog`：连接队列长度，**表示服务器最多可以同时处理多少个连接。**{.text-sky-5}
+- `backlog`：等待 `accept` 的连接队列长度上限；它不表示服务器最多能同时处理多少个已连接客户端
 
 调用完 `listen` 后，对于连接请求，会放入队列。
 
@@ -1246,7 +1244,7 @@ int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 - `addr`：客户端套接字地址会被填写在这里
 - `addrlen`：客户端套接字地址长度
 
-从队列取出连接请求，如果决定接受，则为该连接分配新的描述符 `fd`
+从队列取出一个已建立的连接，并为该连接返回新的描述符 `fd`
 
 <div text-sm>
 
@@ -1459,7 +1457,7 @@ dynamic content
 * Web 服务器作为“父进程”
 * 收到某类请求时 `fork` 子进程，执行某个可执行文件
 * 把请求相关的信息通过 **环境变量 / 标准输入** 传给子进程
-* 子进程把 HTTP body + 部分 header 写到 **标准输出**，父进程再转发给客户端
+* 服务器把子进程的 **标准输出** 重定向到已连接套接字，子进程输出的 header 和 body 直接发送给客户端
 
 </div>
 </div>

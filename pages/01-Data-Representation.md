@@ -991,9 +991,9 @@ table th, table td {
 | `x > y`                    | `ux > uy`                      |    <div v-click> False </div>   |     <div v-click> `x = 0, y = -1` </div>      |
 | `(x > 0) \|\| (x < ux)`      | `1`                            |   <div v-click> False </div>     |     <div v-click> `x <= 0` </div>      |
 | `x ^ y ^ x ^ y ^ x`        | `x`                            |    <div v-click> True </div>    |     <div v-click> 异或的性质 </div>      |
-| `((ux >> 1) << 1) <= ux`   | `1`                            |    <div v-click> True </div>    |     <div v-click> 无符号数逻辑右移后再左移，清空最低位 </div>      |
+| `((x >> 1) << 1) <= x`   | `1`                            |    <div v-click> True </div>    |     <div v-click> 右移后再左移，清空最低位 </div>      |
 | `((x / 2) * 2) <= x`       | `1`                            |   <div v-click> False </div>     |     <div v-click> 向零取整，负奇数 </div>      |
-| `ux ^ uy ^ (~ux) - uy`     | `uy ^ ux ^ (~uy) - ux`         |    <div v-click> True </div>    |     <div v-click> 无符号模运算与运算符优先级 </div>      |
+| `x ^ y ^ (~x) - y`     | `y ^ x ^ (~y) - x`         |    <div v-click> True </div>    |     <div v-click> 运算符优先级 </div>      |
 | `(x == 1) && (ux - 2 < 2)` | `(x == 1) && ((!!ux) - 2 < 2)` |    <div v-click> False </div>    |     <div v-click> 左侧`ux`是`unsigned int`类型，但右侧`!!ux` 会被自动转换为 int </div>      |
 
 ---

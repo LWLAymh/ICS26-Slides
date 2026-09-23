@@ -8,7 +8,7 @@ theme: academic
 title: "03-Arch"
 highlighter: shiki
 info: |
-  ICS 2025 Fall Slides
+  ICS 2026 Fall Slides
 # apply unocss classes to the current slide
 presenter: true
 class: text-center
@@ -89,7 +89,7 @@ programmer visible state
 | 缩写 | 全称 | 描述 | 包括 |
 |------|-------|------|------|
 | RF   | Register File | 程序寄存器 | `%rax` ~ `%r14` |
-| CC   | Condition Code | 条件码 | ZF<span follow>zero</span>, OF<span follow>overflow</span>, SF<span follow>symbol</span> |
+| CC   | Condition Code | 条件码 | ZF<span follow>zero</span>, OF<span follow>overflow</span>, SF<span follow>sign</span> |
 | Stat | Status | 程序状态 | - |
 | PC   | Program Counter | 程序计数器 | - |
 | DMEM | Data Memory | 内存 | - |
@@ -284,14 +284,14 @@ translate assembly code to machine code
   call 0x20c
   halt
 0x20c:
-  irmovq $10 %rbx
+  irmovq $10, %rbx
   ret
 ```
 
 </div>
 <div>
 
-<kbd>40</kbd> <kbd>1</kbd><kbd>3</kbd> <kbd>ff ff ff ff ff ff ff fd</kbd>
+<kbd>40</kbd> <kbd>1</kbd><kbd>3</kbd> <kbd>fd ff ff ff ff ff ff ff</kbd>
 
 </div>
 </div>
@@ -311,10 +311,10 @@ translate assembly code to machine code
   call 0x20c
   halt
 0x20c:
-  irmovq $10 %rbx
+  irmovq $10, %rbx
   ret
 
-<kbd>40</kbd> <kbd>1</kbd><kbd>3</kbd> <kbd>ff ff ff fd</kbd>
+<kbd>40</kbd> <kbd>1</kbd><kbd>3</kbd> <kbd>fd ff ff ff ff ff ff ff</kbd>
 -->
 
 ---
@@ -391,7 +391,7 @@ stack
 Fn是0，第二个寄存器是F
 
 
-根据书 P334 4.7、4.8，如果压栈 / 弹栈的时候的寄存器恰为 `%rsp`，则不会改变 `%rsp` 的值。
+`pushq %rsp` 会压入旧的 `%rsp`，然后将 `%rsp` 减 8；`popq %rsp` 最终会把 `%rsp` 设置为弹出的值。
 -->
 
 
@@ -866,8 +866,8 @@ sequential implementation
 
 读出的指令由如下几个部分组成：
 
-- `icode`：指令代码，指示指令类型，是指令字节的低 4 位
-- `ifun`：指令功能，指示指令的子操作类型，是指令字节的高 4 位（不指定时为 0）
+- `icode`：指令代码，指示指令类型，是指令字节的高 4 位
+- `ifun`：指令功能，指示指令的子操作类型，是指令字节的低 4 位（不指定时为 0）
 - `rA`：第一个源操作数寄存器（可选）
 - `rB`：第二个源操作数寄存器（可选）
 - `valC`：常数，Constant（可选）
@@ -1084,7 +1084,7 @@ sequential implementation
 <div text-sm>
 
 - `pushq %rsp` 的行为：`pushq` 压入的是旧的 `%rsp`，然后 `%rsp` 减 8
-- `popq %rsp` 的行为：`popq` 读出的是旧的 `M[%rsp]`，然后 `%rsp` 加 8
+- `popq %rsp` 的行为：最终将 `%rsp` 设置为旧的 `M[%rsp]`
 
 ↑ 其他情况：
 
@@ -2003,7 +2003,7 @@ data hazard: load / use hazard
 
 - 如果在先前指令的 E 执行阶段（其内靠后时）就已经可以得到正确值，那么由于后面的指令至少落后 1 个阶段，我们总可以在后面指令的 E 寄存器最终确定之前，将正确值转发解决问题。
 - 如果在先前指令的 M 访存阶段（其内靠后时）才能得到正确值，且后面指令紧跟其后，那么当我们实际得到正确值时，必然赶不上后面指令的 E 寄存器最终确定，所以我们必须暂停流水线。
-- 所以，加载 / 使用冒险只发生在 `mrmovq` 后立即使用对应寄存器的情况。
+- 所以，加载 / 使用冒险发生在 `mrmovq` 或 `popq` 后立即使用其目的寄存器的情况。
 
 <div class="text-sm text-gray-5">
 
@@ -2650,7 +2650,7 @@ word e_valA = E_valA;
 # CMOVQ 指令，与 RRMOVQ 共用 icode
 # 当条件不满足时，不写入计算值到任何寄存器
 word e_dstE = [
-  E_icode == IRRMOVQ && !e_Cnd : RNONE
+  E_icode == IRRMOVQ && !e_Cnd : RNONE;
   1 : E_dstE;    # 否则选择 E_dstE
 ];
 ```
@@ -2678,7 +2678,7 @@ pipeline hcl: memory stage
 word mem_addr = [
   # 需要计算阶段计算的值
   # RMMOVQ/MRMOVQ：valE = valC + valB，这里 valA/C “统一”
-  # CALL/PUSH：valE = valB(RRSP) + 8
+  # CALL/PUSH：valE = valB(RRSP) - 8
   M_icode in { IRMMOVQ, IPUSHQ, ICALL, IMRMOVQ } : M_valE;
   # 需要计算阶段不修改传递过来的值，即栈指针旧值
   # d_valA(RRSP) -> E_valA -> M_valA
