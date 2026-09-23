@@ -338,67 +338,11 @@ Complex Instruction Set Computer & Reduced Instruction Set Computer
   </div>
 <div>
 
-* CISC：复杂指令集计算机
-* RISC：精简指令集计算机
-* 设计趋势是融合的
-
 
 </div>
 </div>
 
----
 
-# CISC vs RISC
-
-需要会，很喜欢考
-
-<div grid="~ cols-2 gap-4">
-  <div>
-
-## RISC
-
-- 指令数量少
-- 没有较长延迟的指令
-- 指令编码定长（通常为 4 字节）
-- 寻址方式简单
-- 只能对寄存器操作数运算
-- 没有条件码
-- 寄存器密集的过程链接
-
-代表：ARM, MIPS, RISC-V
-
-  </div>
-<div>
-
-## CISC
-
-- 指令数量多（非常多）
-- 有些指令延迟很长
-- 编码长度可变
-- 寻址方式多样：`Imm(%base, %index, scale)`
-- 可以对内存操作数运算
-- 有条件码
-- 栈密集的过程链接
-
-代表：IA32, x86-64
-
-</div>
-</div>
-
-发展趋势是融合发展。请参考课本 p249-250。
-
-我们学习的 Y86-64 既有 CISC 特性也有 RISC 特性。
-
-<!--
-栈密集：用栈存取过程参数和返回地址。
-
-
-抽学生分析 Y86 有什么 CISC 特性和 RISC 特性。
-
-CISC：条件码，变长指令，用栈保存返回地址
-
-RISC：寄存器传递过程参数，load/store来操作内存
--->
 
 ---
 

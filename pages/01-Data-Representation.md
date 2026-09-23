@@ -8,7 +8,7 @@ theme: academic
 title: "01-Data-Representation"
 highlighter: shiki
 info: |
-  ICS 2025 Fall Slides
+  ICS 2026 Fall Slides
 # apply unocss classes to the current slide
 presenter: false
 class: text-center
@@ -73,10 +73,10 @@ basic concepts
 
 basic concepts
 
-**字长（word size）**：决定虚拟地址空间的最大大小
+**字长（word size）**：处理器一次自然处理的数据宽度，也是指针和地址表示能力的重要参数
 
-- 理论上, 对于一个字长为 $w$ 位的机器而言, 虚拟地址的范围为 $[0,2^{w}-1]$, 程序最多访问 $2^w$ 个字节
-- 为什么? 我们需要计算机去寻址, 从而需要用 $w$ 位二进制数去表示地址, 所以地址的个数就是 $2^w$, 所以程序最多访问 $2^w$ 个字节
+- 若虚拟地址实际使用 $w$ 位，则理论地址范围为 $[0,2^w-1]$，最多可区分 $2^w$ 个字节地址
+- 机器“标称 64 位”不代表实现了一整个 $2^{64}$ 字节虚拟地址空间；实际地址宽度还受处理器实现和操作系统限制
 
 ### 字节顺序{.mt-8.mb-4}
 
@@ -103,12 +103,9 @@ byte order
 
 ### 应用{.mt-8.mb-4}
 
-- 现今，大多数计算机都采用 **小端序**，x86, RISC-V。
-  - CPU计算的时候(例如计算a+b)往往都是从低位到高位计算
-  - 指针往往指向低地址位置, 小端序使得类型转换时不必移动指针
-- 网络通讯中，一般采用 **大端序**。注意：IBM, Sun, Oracle。
-  - 人的阅读顺序是从高位往低位阅读的
-  - 网络包一般由"报头"+"载荷"组成, 路由器转发网络包需要读取报头内容. 因此把报头放在低地址位置, 可以让路由器先看到它并且决定转发策略(感兴趣的同学可以了解一下P4语言)
+- 现今常见的 x86-64 和 RISC-V 系统通常采用 **小端序**。
+  - 将一个对象的地址转换成指向更小整数类型的指针时，小端序下该地址仍指向原对象的最低有效字节
+- 网络协议通常使用 **大端序**，也称为网络字节序。
 
 ---
 
@@ -137,7 +134,7 @@ logical operation
 
 也即：如果对第一个参数求值能确定表达式的结果，那么逻辑运算符不会对第二个参数求值
 
-Q：为什么 `p && *p++` 不会引用空指针？（注意这里是位运算，也有短路特性）
+Q：为什么 `p && *p++` 不会引用空指针？
 
 ---
 
@@ -205,13 +202,13 @@ unsigned integer type and mode
 ### 无符号加法
 
 - 如果$a+b<2^w$, 则$\llbracket add(A,B)\rrbracket=a+b$
-- 如果$a+b>2^w$, 则$\llbracket add(A,B)\rrbracket=a+b-2^w$
+- 如果$a+b\geq 2^w$, 则$\llbracket add(A,B)\rrbracket=a+b-2^w$
 
 
 ### 模意义下加法
 
 - 如果$a+b<2^w$, 则$(a+b)\bmod {2^w} = a+b$
-- 如果$a+b>2^w$, 则$(a+b)\bmod {2^w} = a+b-2^w$
+- 如果$a+b\geq 2^w$, 则$(a+b)\bmod {2^w} = a+b-2^w$
 
 ---
 
@@ -225,7 +222,8 @@ signed integer type
   - 考虑加法的溢出:
     - `0xff+0x01->0x00`
     - 我们可以定义`0xff`为$-1$.
-  - 具体而言, 如果$\llbracket x\rrbracket_I=n$, 我们记$\llbracket (\sim x)+1\rrbracket_I=-n$.
+  - 具体而言, 如果$\llbracket x\rrbracket_I=n$且$n\ne T_{min}$, 我们记$\llbracket (\sim x)+1\rrbracket_I=-n$.
+    - 对于最小补码值 $T_{min}$，其相反数无法在相同位宽的有符号类型中表示；位级取反加一仍得到原位模式
     - 也可以记作: $\llbracket x\rrbracket_I = - x_{w-1} \times 2^{w-1} + \sum_{i=0}^{w-2}(x_i \times 2^i)$
   - 这就是所谓的"补码".
 
@@ -235,7 +233,7 @@ signed integer type
 
 conversion between signed and unsigned
 
-强制类型转换保持位值不变，**只改变解释这些位的方式**
+在相同位宽的对应有符号/无符号类型之间转换时，位模式保持不变，**只改变解释这些位的方式**
 
 - 回忆一个二进制表示 $x = [x_{w-1}, x_{w-2}, ..., x_0]$:
   - 它代表的无符号数: $\llbracket x\rrbracket_U = \sum_{i=0}^{w-1}(x_i \times 2^i)$
@@ -329,7 +327,7 @@ extension and truncation
 
 - 对于无符号数 $x = [x_{w-1}, ..., x_0]$，截断为 $w'$ 位，则 $x' = [x_{w'-1}, ..., x_0]$
   
-  即 $x' = x \mod 2^k$
+  即 $x' = x \mod 2^{w'}$
 
 - 补码截断，原理上与无符号数类似，但对于数位的解释方式不同（最高位符号位）
 
@@ -382,13 +380,13 @@ multiplication and division
 
 ### 补码乘法{.mt-6.mb-2}
 
-等于有符号数乘法后得到的结果（一个 $2w$ 位长的数），无符号截断到 $w$ 位，而后将最高位转化为符号位
+等于有符号数乘法后得到的结果（一个 $2w$ 位长的数），再按位截断到 $w$ 位
 
 **核心：粗暴的位级表示截断**
 
 ### 乘以二的幂次{.mt-6.mb-2}
 
-此时，**相当于左移**
+乘以 $2^k$ 时，**相当于左移 $k$ 位**
 
 --- 
 
@@ -396,7 +394,7 @@ multiplication and division
 
 add/sub/mul
 
-根据我们上面讨论的内容, 我们知道, 整数类型的加/减/乘 总可以视作是$\bmod {2^w}$意义下的运算, 根据模运算的性质, 我们立刻就有:
+在固定位宽的机器整数运算中，加/减/乘可以视作 $\bmod {2^w}$ 意义下的运算，因此有：
 
 - 加法交换律: $\llbracket A+B \rrbracket=\llbracket B+A \rrbracket$
 - 加法结合律: $\llbracket (A+B)+C \rrbracket=\llbracket A+(B+C) \rrbracket$
@@ -410,16 +408,18 @@ add/sub/mul
 
 div/mod
 
-除法/取模的实现比较特殊, 你总可以认为:
+当除数不为 0，且不出现有符号的 $T_{min}/-1$ 溢出时，C 整数除法向零取整：
 
 - 除法的结果是向零取整, 具体地:
   - 如果`A,B`同号, 则$\llbracket A/B\rrbracket=\lfloor\frac{\llbracket A\rrbracket}{\llbracket B\rrbracket}\rfloor$
   - 如果`A,B`异号, 则$\llbracket A/B\rrbracket=\lceil\frac{\llbracket A\rrbracket}{\llbracket B\rrbracket}\rceil$
-- 取模总是实现为$\llbracket A\bmod B\rrbracket=\llbracket A- (A/B)*B\rrbracket$
+- 商和余数满足 $A = (A/B)\times B + A\%B$，因此 $A\%B = A-(A/B)\times B$
 - `7/3 == 2, 7%3 == 1`
 - `(-7)/3 == -2, (-7)%3 == -1`
 - `7/(-3) == -2, 7%(-3) == 1`
 - `(-7)/(-3) == 2, (-7)%(-3) == -1`
+
+除数为 0 是未定义行为；对于补码有符号整数，$T_{min}/-1$ 的数学结果不可表示，在 C 中同样是未定义行为。
 
 ---
 
@@ -479,8 +479,8 @@ $$
 # 其它语言中的整数类型
 
 - Rust: 摒弃C语言中混乱的类型名, 统一使用形如`i32,u16`形式的整数类型名
-- Python: `int`类型原生支持高精度, 底层是一个使用可变长数组的结构体PyLongObject, 每个数字形如$\text{Value} = \sum_{i=0}^{N-1} \text{ob\_digit}[i] \times (2^{30})^i$
-- Haskell: 显式区分硬件原生类型(Int)和高精度类型(Integer), 后者调用C语言里的GMP库实现
+- Python：`int` 原生支持任意精度。以常见 64 位 CPython 构建为例，`PyLongObject` 使用可变长“数字”数组，通常以 $2^{30}$ 为基数；这是实现细节，并非 Python 语言规范
+- Haskell：区分固定精度的 `Int` 和任意精度的 `Integer`。以 GHC 为例，`Integer` 的大整数后端可使用 GMP 或原生实现，并非语言层面固定为 GMP
 
 ---
 
@@ -533,10 +533,10 @@ underlying IEEE 754
 ### 规格化值($e_{raw}\in [1,2^{w_e}-2]$)
 
 $$
-V = (-1)^s \times (1.M) \times 2^{E-Bias}
+V = (-1)^s \times (1.M) \times 2^E
 $$
 
-- $s$ 为符号位，$M$ 为尾数，$E$ 为阶码
+- $s$ 为符号位，$M$ 为尾数，$E$ 为实际指数
 - $E = e_{raw} - Bias$，其中 $e_{raw}$ 为阶码处这 $w_e$ 位的实际值，$Bias = 2^{w_e-1} - 1$
 - 尾数隐含了 1
 
@@ -571,7 +571,7 @@ underlying IEEE 754
 ### 无穷($e_{raw}=2^{w_e}-1$, $M=0$)
 
 - 符号位 $s$ 区分正无穷/负无穷
-- 表示无穷大，在计算中可以用于表示溢出或未定义的结果
+- 表示无穷大，常由非零有限数除以零或浮点溢出产生；$0/0$、$\infty-\infty$ 等无效运算产生 `NaN`
 
 </div>
 
@@ -652,8 +652,10 @@ rounding
 
 ### 实数舍入到浮点数
 
-- 向偶数舍入（round-to-even）（round-to-nearest）
+- 舍入到最近值，恰好居中时取偶数（round-to-nearest, ties-to-even）
 - 类比“四舍六入五成双”，避免统计偏差
+
+以下十进制例子演示“舍入到最近整数”：
 
 $$
 1.234 \Rightarrow 1.0 \\
@@ -665,8 +667,8 @@ $$
 
 ### 浮点数转整型{.mt-6}
 
-- 如果舍入，向零舍入，`-9.9 -> -9`， `9.9 -> 9`
-- 如果溢出，C 语言未规定（undefined behavior），各自处理（Intel：$T_{\text{min}}^w$，即舍入到限定最接近的数）
+- C 的浮点数转整数会丢弃小数部分，即向零截断：`-9.9 -> -9`，`9.9 -> 9`
+- 如果转换结果超出目标整数类型的可表示范围，C 语言规定为未定义行为。x86 的某些转换指令在异常被屏蔽时会返回 indefinite integer（常见位模式为 $T_{\text{min}}^w$），这不是饱和到最近边界
 
 ---
 
@@ -674,24 +676,24 @@ $$
 
 rounding
 
-给定一个实数，会因为该实数表示成单精度浮点数 `float` 而发生误差。不考虑 `NaN` 和 `Inf` 的情况，该绝对误差的最大值为？
+采用 round-to-nearest, ties-to-even，且舍入结果为有限 `float` 时，实数转换为单精度浮点数的绝对误差上界是多少？
 
 <div class="text-sm" v-click>
 
 1. 显然阶码位要尽可能的大，才会让误差变大，由于不考虑 `Inf`，所以最大时，阶码位为 `11111110`，即 $2^{8} - 2$，于是<br> $E = e_{raw} - Bias = (2^8 - 2) - (2^7 - 1) = 2^7 - 1 = 127$
 2. 尾数位的最大误差发生在舍入时，尾数的 23 位的最后 1 位是上取了还是下取了，最大误差为 $2^{-23} · \frac{1}{2} = 2^{-24}$
-3. 于是最大误差为 $2^{127} \times 2^{-24} = 2^{103}$
+3. 于是绝对误差上界为 $2^{127} \times 2^{-24} = 2^{103}$
 
 也即，原数的精确表示实际上是：
 
 $$
-\pm 2^{127} \times (1.\underbrace{111...\blue{1}}_{24 个 1})_2
+\pm 2^{127} \times (1.\underbrace{111...1}_{22 个 1}0\blue{1})_2
 $$
 
 其被舍入到了
 
 $$
-\pm 2^{127} \times (1.\underbrace{111...1}_{23 个 1})_2
+\pm 2^{127} \times (1.\underbrace{111...1}_{22 个 1}0)_2
 $$
 
 </div>
@@ -703,7 +705,7 @@ $$
 floating point arithmetic
 
 - 加法可交换 `x + y = y + x`，加法不可结合 `(x + y) + z != x + (y + z)`，`NaN`没有加法逆元
-- 浮点加法单调性，如果 $a \ge b$，那么对于任何 $a$，$b$ 以及 $x$ 的值，除了 `NaN` 都有 $x + a \ge x + b$
+- 浮点加法具有非严格单调性：若 $a \ge b$，且两次加法均不产生 `NaN`，则 $x + a \ge x + b$
 - 乘法可交换 `x * y = y * x`，乘法不可结合 `(x * y) * z != x * (y * z)`
 - 乘法在加法上不可分配 `(x + y) * z != x * z + y * z`
 - 小心特殊值：`+inf`，`-inf`，`NaN`
@@ -721,11 +723,11 @@ floating point arithmetic
 
 exception
 
-- Invalid operation：零乘无穷、零除零、无穷除无穷、无穷绝对值相减......
-- Division by zero：有穷数除零结果为无穷
-- Overflow：无穷
-- Underflow：舍入结果
-- Inexact：舍入结果
+- Invalid operation：零乘无穷、零除零、无穷除无穷、无穷减无穷等，默认结果为 `NaN`
+- Division by zero：非零有限数除以零，默认结果为带符号的无穷
+- Overflow：精确结果幅值过大；默认舍入模式下通常得到带符号的无穷，其他舍入模式也可能得到最大有限值
+- Underflow：舍入后的结果极小且不精确，可能得到非规格化数或零
+- Inexact：舍入结果与精确结果不同
 
 更多详情请见 [IEEE754](https://en.wikipedia.org/wiki/IEEE_754) 异常处理
 
@@ -737,11 +739,11 @@ exception
 
 - IEEE 754标准本身就规定了FP16浮点类型, 它由1个符号位，5位指数位和10位小数位组成
 
-- 近年也开始流行FP8浮点类型标准, 分为E4M3(常用于前向传播的权重和激活)和E5M2(常用于反向传播的梯度)两种.
+- 近年也开始流行 FP8 格式，常见变体包括 E4M3（常用于前向传播的权重和激活）和 E5M2（常用于反向传播的梯度）。
 
-> 两个浮点数做乘法时, 最后面的尾数几乎一定要被截断, 可它们还在白白参与运算
+> 两个浮点数相乘后，精确乘积通常需要更多有效位，最终仍要按目标格式舍入；降低乘法输入精度可以减少硬件开销
 
-- 英伟达提出了TF32浮点类型, 它在内存中以FP32格式存储, 并以FP32规则参与加法运算. 但当它将要参与乘法运算时, 它将尾数位截断到$10$位并做乘法, 结果仍以FP32格式保存
+- 英伟达提出了 TF32 运算格式。数据仍以 FP32 存储；参与 Tensor Core 乘法时，输入按 TF32 精度舍入到 10 位小数字段，乘积以 FP32 精度累加
 
 > 一些情景对尾数精度要求不高, 但要求可以表示很大范围的数字
 
@@ -758,7 +760,7 @@ exception
 # 补充: 模型训练中的浮点数
 
 - 《AWQ: Activation-aware Weight Quantization for On-Device LLM Compression and Acceleration》
-- 《Microscaling Floating Point Formats for Large Language Models》
+- 《Microscaling Data Formats for Deep Learning》
 - 《BitNet: Scaling 1-bit Transformers for Large Language Models》
 - 《The Era of 1-bit LLMs: All Large Language Models are in 1.58 Bits》
 
@@ -772,6 +774,8 @@ Exercises
 2. 如果把 B 的初始值改为 `0x34566666`，输出是？
 
 ```c
+#include <stdio.h>
+
 int main() {
   unsigned int A = 0x11112222;
   unsigned int B = 0x33336666;
@@ -788,7 +792,7 @@ int main() {
 
 考虑 A 和 B 在内存中的存储，从低地址到高地址，A 为 `22 22 11 11`，B 为 `66 66 33 33`。P 显然为 `22 22`，Q 为 `33 33`，所以结果为 `0x5555`。
 
-改初值之后，B 为 `66 66 56 34`，`22 22` + `56 34` = `78 56`，所以结果为 `0x5678`（注意小端法哦）
+改初值之后，B 为 `66 66 56 34`，因此 `P = 0x2222`，`Q = 0x3456`，二者相加得到 `0x5678`。
 
 </div>
 
@@ -801,9 +805,11 @@ Exercises
 在 x86-64 机器上运行如下代码，输出是？（提示：`0` 的 ASCII 码为 `0x30`）
 
 ```c
+#include <stdio.h>
+
 int main() {
-  char A[12] = "11224455"
-  char B[12] = "11445577"
+  char A[12] = "11224455";
+  char B[12] = "11445577";
   void *x = (void *)&A;
   void *y = 2 + (void *)&B;
   unsigned short P = *(unsigned short *)x;
@@ -835,8 +841,8 @@ Integral/Type Promotion
 
 int main() {
   unsigned char uc = 128;
-  char c = 128;
-  printf("%d %d\n", uc == c, uc + c)
+  signed char c = -128;
+  printf("%d %d\n", uc == c, uc + c);
 }
 ```
 ---
@@ -845,7 +851,7 @@ int main() {
 
 Integral/Type Promotion
 
-规则 #1：对于 `char`, `unsigned char`, `short` 这样范围小于 `int` 的类型，在做任何运算之前，都会被隐式扩展成 `int` 类型
+规则 #1：对 `char`、`signed char`、`unsigned char`、`short` 等类型进行整数提升时，若 `int` 能表示原类型的全部值，则提升为 `int`；否则提升为 `unsigned int`
 
 > `unsigned char` 是怎么扩展到 `int` 的？
 
@@ -859,8 +865,8 @@ Integral/Type Promotion
 
 int main() {
   unsigned char uc = 128;
-  char c = 128;
-  printf("%d %d\n", uc == c, uc + c)
+  signed char c = -128;
+  printf("%d %d\n", uc == c, uc + c);
 }
 ```
 
@@ -868,7 +874,7 @@ int main() {
 
 <div class="text-sm" v-click>
 
-1. `uc` 的初始值为 128，二进制表示为 `1000 0000`，`c` 的初始值为 -128，二进制表示为 `1000 0000`。
+1. `uc` 的初始值为 128，二进制表示为 `1000 0000`；`c` 的初始值为 -128，在补码机器上的二进制表示也为 `1000 0000`。
 2. 二者进行运算时，都被扩展到 `int`。`uc` 做无符号数的零扩展然后改变解释方式，变为 `... 1000 0000`，值仍为 128。
 3. `c` 做有符号数扩展，前面补 1，变为 `1111 ... 1000 0000`，值为 -128。
 4. 所以输出为 `0 0`。
@@ -905,7 +911,7 @@ Integral/Type Promotion
 
 规则 #4：表达式中无符号数的等级更低时，如果有符号数的类型无法完全覆盖无符号数，则将它们转换为有符号数的类型对应的无符号数
 
-例如：在 32 位的机器上，`sizeof(int) == sizeof(long) == 4`
+例如：在常见的 ILP32 数据模型下，`sizeof(int) == sizeof(long) == 4`
 - 比较 `1u` 和 `-1l` 时
 - 因为 `unsigned` 的等级低于 `long`，但 `long` 不能覆盖 `unsigned` 的范围（重要）
 - 所以都会把他们转化为 `unsigned long` 比较。
@@ -922,7 +928,7 @@ Integral/Type Promotion
 
 让我来看看你真的学懂了没有
 
-请分别回答以下程序在 32 位和 64 位机器上的输出是什么
+请分别回答以下程序在 ILP32 和 LP64 数据模型下的输出是什么
 
 ```c
 #include <stdio.h>
@@ -942,11 +948,11 @@ int main() {
 <div class="text-sm">
 <div v-click>
 
-#### **32 位**
+#### **ILP32**
 
 应该还是比较简单的
 
-- `1ul`(1) 和 `-1ul`(4294967295) 相加得到 `0ul`，小于 `-1ul`。
+- `1u` 和 `1l` 相加得到 `2ul`，小于 `-1ul`。
 - `int` 能完整表示 `short`，所以 `1us` 直接被扩展到 `1`
 - 所以 lhs 为 2147483647，正好是 `INT_MAX`，rhs 正好是 -2147483648，正好是 `INT_MIN`。
 
@@ -956,7 +962,7 @@ int main() {
 
 <br>
 
-#### **64 位**
+#### **LP64**
 
 - 此时，`long` 是 64 位的，表示范围能覆盖 `unsigned`，所以第一个表达式统一扩展到 `long`，`1u + 1l` 结果为 `2l`。
 - 后者不变
@@ -989,10 +995,10 @@ table th, table td {
 | `x > y`                    | `ux > uy`                      |    <div v-click> False </div>   |     <div v-click> `x = 0, y = -1` </div>      |
 | `(x > 0) \|\| (x < ux)`      | `1`                            |   <div v-click> False </div>     |     <div v-click> `x <= 0` </div>      |
 | `x ^ y ^ x ^ y ^ x`        | `x`                            |    <div v-click> True </div>    |     <div v-click> 异或的性质 </div>      |
-| `((x >> 1) << 1) <= x`     | `1`                            |    <div v-click> True </div>    |     <div v-click> 清空了最低位 </div>      |
+| `((ux >> 1) << 1) <= ux`   | `1`                            |    <div v-click> True </div>    |     <div v-click> 无符号数逻辑右移后再左移，清空最低位 </div>      |
 | `((x / 2) * 2) <= x`       | `1`                            |   <div v-click> False </div>     |     <div v-click> 向零取整，负奇数 </div>      |
-| `x ^ y ^ (~x) - y`         | `y ^ x ^ (~y) - x`             |    <div v-click> True </div>    |     <div v-click> 优先级，`-x = ~x + 1` </div>      |
-| `(x == 1) && (ux - 2 < 2)` | `(x == 1) && ((!!ux) - 2 < 2)` |    <div v-click> False </div>    |     <div v-click> `!!ux` 会被整型提升到 int </div>      |
+| `ux ^ uy ^ (~ux) - uy`     | `uy ^ ux ^ (~uy) - ux`         |    <div v-click> True </div>    |     <div v-click> 无符号模运算与运算符优先级 </div>      |
+| `(x == 1) && (ux - 2 < 2)` | `(x == 1) && ((!!ux) - 2 < 2)` |    <div v-click> False </div>    |     <div v-click> 左侧`ux`是`unsigned int`类型，但右侧`!!ux` 会被自动转换为 int </div>      |
 
 ---
 
@@ -1005,7 +1011,7 @@ Exercises
 | **Description**                                                  | **True?** | **Why?** |
 | ------------------------------------------------------------ | ----- | ---- |
 | 对于任意单精度浮点数 `a` 和 `b`，若 `a > b`，则 `a + 1 > b`  |    <div v-click> True </div>   |   <div v-click> 显然 </div>   |
-| 对于任意单精度浮点数 `a` 和 `b`，若 `a > b`，则 `a + b > b = b` |    <div v-click> False </div>   |   <div v-click> `inf` </div>   |
+| 对于任意单精度浮点数 `a` 和 `b` 和 `c`，若 `a > b`，则 `a + c > b + c` |    <div v-click> False </div>   |   <div v-click> `inf` </div>   |
 | 对于任意双精度浮点数 `d`，若 `d < 0`，那么 `d * d > 0`       |    <div v-click> False </div>   |   <div v-click> 下溢 </div>   |
 | 对于任意双精度浮点数 `d`，若 `d < 0`，那么 `d * 2 < 0`       |   <div v-click> True </div>    |   <div v-click> `-inf` 也没关系 </div>   |
 | 对于任意双精度浮点数 `d`，`d == d`                           |   <div v-click> False </div>    |   <div v-click> NaN </div>   |
