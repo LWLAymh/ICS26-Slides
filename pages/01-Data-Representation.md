@@ -851,9 +851,42 @@ int main() {
 
 Integral/Type Promotion
 
-规则 #1：对 `char`、`signed char`、`unsigned char`、`short` 等类型进行整数提升时，若 `int` 能表示原类型的全部值，则提升为 `int`；否则提升为 `unsigned int`
+- 规则 #1：对 `char`、`signed char`、`unsigned char`、`short` 等类型进行整数提升时，若 `int` 能表示原类型的全部值，则提升为 `int`；否则提升为 `unsigned int`
 
 > `unsigned char` 是怎么扩展到 `int` 的？
+
+- 规则 #2：int 及以上，存在一系列按等级排列的类型。当表达式中数“是否有符号”相同，但等级不同时，统一扩展到存在的最高等级类型
+  - 类型等级为：`int` < `long` < `long long`
+  - 因为 C 标准中规定了 `sizeof(int) <= sizeof(long) <= sizeof(long long)`
+
+
+---
+
+# 整型/类型提升
+
+Integral/Type Promotion
+
+- 规则 #3：无符号类型与相应有符号类型处于同一等级。表达式中无符号数的等级更高，或二者相同时，有符号类型统一转换到无符号
+  - 例如：
+    - `int` 和 `unsigned`：统一转换为 `unsigned`
+    - `int` 和 `unsigned long`：统一转换为 `unsigned long`
+    - `-1 < sizeof(int)` 为假：为什么？参考：https://en.cppreference.com/w/c/types/size_t.html
+- 规则 #4：表达式中无符号数的等级更低时，如果有符号数的类型无法完全覆盖无符号数，则将它们转换为有符号数的类型对应的无符号数
+
+  - 例如：在常见的 ILP32 数据模型下，`sizeof(int) == sizeof(long) == 4`
+    - 比较 `1u` 和 `-1l` 时
+    - 因为 `unsigned` 的等级低于 `long`，但 `long` 不能覆盖 `unsigned` 的范围（重要）
+    - 所以都会把他们转化为 `unsigned long` 比较。
+    - 所以需要比较的是 `1ul`(1) 和 `-1ul`(4294967295)
+<!--
+sizeof(int) 类型为 size_t，通常为 unsigned long 或 unsigned long long 但必须能表示对象的最大大小。
+但总之不会低于 int
+
+-->
+
+---
+
+# 整型/类型提升
 
 <br>
 
@@ -881,42 +914,6 @@ int main() {
 
 </div>
 </div> 
-
----
-
-# 整型/类型提升
-
-Integral/Type Promotion
-
-- 规则 #2：int 及以上，存在一系列按等级排列的类型。当表达式中数“是否有符号”相同，但等级不同时，统一扩展到存在的最高等级类型
-  - 类型等级为：`int` < `long` < `long long`
-  - 因为 C 标准中规定了 `sizeof(int) <= sizeof(long) <= sizeof(long long)`
-- 规则 #3：无符号类型与相应有符号类型处于同一等级。表达式中无符号数的等级更高，或二者相同时，有符号类型统一转换到无符号
-  - 例如：
-    - `int` 和 `unsigned`：统一转换为 `unsigned`
-    - `int` 和 `unsigned long`：统一转换为 `unsigned long`
-    - `-1 < sizeof(int)` 为假：为什么？参考：https://en.cppreference.com/w/c/types/size_t.html
-
-<!--
-sizeof(int) 类型为 size_t，通常为 unsigned long 或 unsigned long long 但必须能表示对象的最大大小。
-但总之不会低于 int
-
--->
-
----
-
-# 整型/类型提升
-
-Integral/Type Promotion
-
-规则 #4：表达式中无符号数的等级更低时，如果有符号数的类型无法完全覆盖无符号数，则将它们转换为有符号数的类型对应的无符号数
-
-例如：在常见的 ILP32 数据模型下，`sizeof(int) == sizeof(long) == 4`
-- 比较 `1u` 和 `-1l` 时
-- 因为 `unsigned` 的等级低于 `long`，但 `long` 不能覆盖 `unsigned` 的范围（重要）
-- 所以都会把他们转化为 `unsigned long` 比较。
-- 所以需要比较的是 `1ul`(1) 和 `-1ul`(4294967295)
-
 ---
 
 # 整型/类型提升
