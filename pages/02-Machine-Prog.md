@@ -138,13 +138,6 @@ basic concepts
 
 我们学习的 Y86-64 既有 CISC 特性也有 RISC 特性。
 
-<!--
-抽学生分析 Y86 有什么 CISC 特性和 RISC 特性。
-
-CISC：条件码，变长指令，用栈保存返回地址
-
-RISC：寄存器传递过程参数，load/store来操作内存
--->
 
 ---
 
@@ -152,7 +145,7 @@ RISC：寄存器传递过程参数，load/store来操作内存
 
 - 编译器工具链：将源代码逐步翻译成汇编代码和机器码，最终由 CPU 执行机器指令
   - 由于编译器在现代软件工程生态中的重要性, 保证编译器的正确性成了一个较热门的研究方向
-  - 感兴趣的同学可以阅读《Formal Verification of a Realistic Compiler》
+  - 感兴趣的同学可以阅读《CompCert - A Formally Verified Optimizing Compiler》
 - 解释器：读取程序并按语言语义逐步执行，不一定先生成独立的机器码文件
 - JIT编译：在运行期间把热点代码编译为机器码，以减少后续执行开销
   - 现代模型训练中有很多地方都使用了JIT编译优化，感兴趣的同学可以阅读《PyTorch 2: Faster Machine Learning Through Dynamic Python Bytecode Transformation and Graph Compilation》
@@ -173,6 +166,13 @@ RISC：寄存器传递过程参数，load/store来操作内存
 # 编译器是如何工作的？
 
 ![Compiler](/02-Machine-Prog/compiler.png)
+
+---
+
+# C语言编译器是如何工作的？
+
+<img src="/02-Machine-Prog/compiling.png" alt="C 编译流程" style="width: 60%; height: auto; margin: 0 auto;" />
+
 
 ---
 
@@ -198,6 +198,7 @@ objdump -d hello > hello.asm
 ```
 
 - 使用 `objdump` 可以将二进制文件通过反汇编得到它的汇编代码文本
+
 
 ---
 
@@ -244,9 +245,11 @@ objdump -d bomb > bomb.asm
 </div>
 </div>
 
-<!--
-讲一下linux终端重定向I/O
--->
+---
+
+# JAVA语言编译器是如何工作的？
+
+![Java](/02-Machine-Prog/Java.png)
 
 ---
 
@@ -326,6 +329,26 @@ hot!hot!hot!!!!!!!
 
 - MSVC调试版中, 栈中的未用字节初始化为`0xCC`, 而"烫"字的GBK编码为`0xCCCC`.
 - 同理, 堆中的未用字节初始化为`0xCD`, 而"屯"字的GBK编码为`0xCDCD`.
+
+<div class="mt-4 grid grid-cols-2 gap-3 items-center">
+  <img src="/02-Machine-Prog/hothothot.png" alt="烫烫烫" class="w-full" />
+  <img src="/02-Machine-Prog/tuntuntun.jpg" alt="屯屯屯" class="w-full" />
+</div>
+
+---
+layout: image-right
+image: /02-Machine-Prog/Mojibake.jpg
+backgroundSize: 80%
+---
+
+# 各种乱码一览
+
+Mojibake
+
+- 常用中文编码有UTF-8和GBK两种, 其中UTF-8通常以三字节编码一汉字, GBK以二字节编码一汉字
+  - 末尾问号: UTF-8 编码的汉字总字节数如果是奇数n，则总共使用了3n个字节，此时用 GBK 强行读取时，最后一个孤零零的字节由于凑不够一对，就会被识别为非法字节，从而被永久破坏成了问号。
+  - �: UTF-8中对识别不出的字符会用�(编码为`0xEF 0xBF 0xBD`)代替
+  - 锟斤拷: 如果此时再转为GBK编码(二字节编码汉字), "锟斤拷"三个字的编码分别是`0xEF 0xBF`, `0xBD 0xEF`, `0xBF 0xBD`.
 
 
 ---
@@ -736,10 +759,10 @@ CF and OF
 
 - 对二进制加法（含用二补码表示的有符号加法）：
   - CF = 最高位之后产生的进位（carry-out of MSB）。
-  - OF = “进位进入最高位” XOR “进位从最高位溢出”（carry_into_MSB ⊕ carry_out_of_MSB）。
+  - OF = “进位进入最高位” XOR “进位从最高位溢出”。
 等价的直观判定：如果两个被加数 符号位相同，且和的符号与它们不同，则 OF = 1。
 
-- 对减法（`x − y`，可看作 `x + (~y + 1)`）：
+- 对减法（`x − y`，注意计算条件码时不等价于 `x + (~y + 1)`）：
   - CF = 1 表示发生了借位（等价于 unsigned 下 x < y）。
   - OF 的判定也可用符号法：如果被减数和减数 符号不同，且结果的符号与被减数不同，则 OF = 1。
 
@@ -1738,103 +1761,6 @@ transfer control
 
 - 压栈后，`%rsp` -8，压入的是 `%rip` 下一条指令地址
 - 弹栈后，`%rsp` +8，弹出的是栈帧中的内容，和当前运行时的 `%rip` 无关
-
-
----
-
-# 小测试
-
-quiz
-
-下面关于布尔代数的叙述，错误的是：
-
-- A. 设 `x, y, z` 是整型，则 `x^y^z == y^z^x`
-- B. 若允许使用“全 1”常量，任意逐位布尔运算都可以由与运算 (`&`) 和异或运算 (`^`) 组合得到
-- C. 设 `m, n` 是 `char*` 类型的指针，则下面三条语句 `*n = *m^*n; *m = *m^*n; *n = *m^*n;` 可以交换 `*m` 和 `*n` 的值
-- D. 已知 `a, b` 是无符号整型，且 `a+b+1==0` 为真，则 `a^b+1==0` 为真
-
-<div v-click>
-
-A. 正确，考虑每个 bit 的最终结果只和 `x, y, z` 的对应 bit 有多少个 0、多少个 1 有关，而和异或顺序无关
-
-B. 正确。记 `ALL_ONES` 为与操作数等宽的全 1 常量，则 `~A = A ^ ALL_ONES`，并可由德摩根律构造 `A | B = ~(~A & ~B)`。
-
-C. 错误，因为 `m` 和 `n` 可能指向同一个地址，所以第一句话直接置零了。但对于其他情况，是对的。
-
-D. 正确，这个非常离谱，下一页 PPT 单独讲。
-
-</div>
-
-<!--
-A. 正确，考虑每个 bit 的最终结果只和 `x, y, z` 的对应 bit 有多少个 0、多少个 1 有关，而和异或顺序无关
-
-B. 正确。允许全 1 常量后，可以用异或构造按位取反，再结合与运算构造其他逐位布尔运算。
-
-C. 错误，因为 `m` 和 `n` 可能指向同一个地址，所以第一句话直接置零了。但对于其他情况，是对的。
-
-D. 正确，注意运算符优先级问题
--->
-
----
-
-# 小测试
-
-quiz
-
-- D. 已知 `a, b` 是无符号整型，且 `a+b+1==0` 为真，则 `a^b+1==0` 为真
-
-第一层理解：如果先按直觉给右式加上括号，前提在无符号模运算下给出 `a + b == UINT_MAX`，因此 `a == ~b`，从而 `(a ^ b) + 1 == 0`。
-
-第二层理解：右式没有括号。根据 [优先级表](https://c-cpp.com/c/language/operator_precedence)，计算优先级为 `+` > `==` > `^`，所以实际表达式是 `a ^ ((b + 1) == 0)`，需要重新判断。
-
-第三层理解：在第二层理解上再次思考，考虑了优先级后，何时 `a^((b+1)==0)` 为假？
-
-该异或表达式只有在 `a` 等于布尔值 `0` 或 `1` 时才可能为 0；同时前提给出 `a + b == UINT_MAX`。
-
-<div grid="~ cols-2 gap-12">
-<div>
-
-`a = 1`，则 `b = UINT_MAX - 1`，所以 `(b + 1) == 0` 为假，最终 `a ^ 0 == 1`。
-
-</div>
-
-<div>
-
-`a = 0`，则 `b = UINT_MAX`，所以 `(b + 1) == 0` 为真，最终 `a ^ 1 == 1`。
-
-</div>
-</div>
-
-所以，此选项仍然正确。
-
----
-
-# 思考题
-
-Machine Prog: Basics
-
-
-1. 为什么在寄存器上读、写数据时不需要再考虑大端法和小端法的区别？
-1. 为什么内存寻址的 `S (scale)` 参数总是 1，2，4 或者 8？
-
-<!--
-S 只需要占两个比特位，1，2，4，8对应 byte, word, dword, qword，方便数组寻址。对于任意缩放倍率，不实用，复杂性高。
--->
-
----
-
-# 思考题
-
-Machine Prog: Control
-
-1. 如何对一个寄存器较高的字节赋值，同时不改变较低的字节？
-2. 为什么不建议使用条件赋值？
-3. C 语言中三种循环形式 (`for`，`while`，`do-while`)，理论上哪种效率更高？
-4. 为什么 C 语言中的 `switch` 语句需要在每个分支后 `break` 才能退出？
-
-<!--
-有一些专门针对寄存器高位的，不展开。或者可以使用掩码，利用你在datalab的知识。三种循环编译后都一样的，不存在效率差别。switch-case语句的 fall-through语义，看编译的结果就能看出来。
--->
 
 
 ---
