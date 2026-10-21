@@ -32,27 +32,13 @@ coverBackgroundUrl: /03-Arch/cover.jpg
 ---
 # Arch: ISA & Pipeline
 
-Taoyu Yang, EECS, PKU
+Menghong Yu, EECS, PKU
 
 <style>
   div{
    @apply text-gray-2;
   }
 </style>
-
----
-
-layout: center
-class: text-center
----
-
-# 研讨题分享
-
-<!--
-强调一下 attacklab 和 archlab
-
-archlab 让学 PIPE 的时候写 part B，专注去尝试搞懂几种 hazard 对应的 bubble 和 stall。以及用 git 做好版本控制。
--->
 
 ---
 
@@ -114,7 +100,7 @@ image: /03-Arch/Y86-Instruction.png
 
 一个 X86-64 的子集
 
-```md {all|1|2|3|4|5|6|7|8|9|10|11|12|13|all}
+```md {all|1|2|3|4-7|8|9|10|11|12|13|all}
 * halt # 停机
 * nop # 空操作，可以用于对齐字节
 * cmovXX rA, rB # 如果条件码满足，则将寄存器 A 的值移动到寄存器 B
@@ -153,7 +139,7 @@ image: /03-Arch/Y86-Instruction.png
 
 一个 X86-64 的子集
 
-```md {all|1|2|3|4|5|6|7|8|9|10|11|12|13|all}
+```md {all}
 * halt # 停机
 * nop # 空操作，可以用于对齐字节
 * cmovXX rA, rB # 如果条件码满足，则将寄存器 A 的值移动到寄存器 B
@@ -209,7 +195,7 @@ image: /03-Arch/register.png
 
 Register
 
-```markdown{all|1-4|5-6|7-8|9-15|16|all|8,7,3,2|all|4,6,13-16}
+```markdown{all|1-4|5-6|7-8|9-15|16|all|8,7,3,2,9,10|all|4,6,13-16}
 * 0x0 %rax 
 * 0x1 %rcx
 * 0x2 %rdx
@@ -230,6 +216,7 @@ Register
 
 - 一共只有 15 个寄存器，`0xF` 表示空。
 - 用 4 个二进制位来标识
+- 回忆: movq不能以`%rsp`作为index寄存器.
 
 <!--
 这一页介绍所有的寄存器
@@ -243,6 +230,9 @@ translate assembly code to machine code
 
 以下习题节选自书 P248，练习题 4.1 / 4.2
 
+<div class="translation-layout">
+<div class="translation-steps">
+
 <div v-click-hide>
 
 ### Quiz
@@ -254,8 +244,6 @@ translate assembly code to machine code
 
 对于第一条翻译为汇编代码，第二条翻译为机器码
 
-<br/>
-
 </div>
 
 <div v-after>
@@ -266,12 +254,9 @@ translate assembly code to machine code
 | 0x200 | <kbd>a0</kbd> <kbd>6f</kbd> \| <kbd>80</kbd> <kbd>0c 02 00 00 00 00 00 00</kbd> \| <kbd>00</kbd> \| <kbd>30</kbd> <kbd>f</kbd><kbd>3</kbd> <kbd>0a 00 00 00 00 00 00 00</kbd> \| <kbd>90</kbd>|
 | loop | rmmovq, rcx, rbx, -3 |
 
-
 </div>
 
-<br>
-
-<div v-click>
+<div v-click class="translation-step2">
 
 ### Step 2
 
@@ -291,13 +276,58 @@ translate assembly code to machine code
 </div>
 <div>
 
-<kbd>40</kbd> <kbd>1</kbd><kbd>3</kbd> <kbd>fd ff ff ff ff ff ff ff</kbd>
+<kbd>40</kbd> <kbd>1</kbd><kbd>3</kbd><br>
+<kbd>fd ff ff ff</kbd> <kbd>ff ff ff ff</kbd>
 
 </div>
 </div>
+</div>
+
+</div>
+<img src="/03-Arch/Y86-Instruction.png" alt="Y86-64 指令编码表" class="translation-encoding" />
 </div>
 
 <style>
+.translation-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.translation-steps {
+  min-width: 0;
+  font-size: 16px;
+}
+.translation-steps h3 {
+  margin: 0 0 8px;
+}
+.translation-steps table {
+  width: 100%;
+  table-layout: fixed;
+  margin: 8px 0 12px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.translation-steps thead {
+  display: none;
+}
+.translation-steps td {
+  padding: 8px 6px;
+  vertical-align: top;
+}
+.translation-steps td:first-child {
+  width: 60px;
+}
+.translation-step2 {
+  margin-top: 16px;
+}
+.translation-encoding {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1.46;
+  object-fit: cover;
+  object-position: center;
+}
 .slidev-vclick-hidden {
   @apply hidden;
 }
@@ -319,7 +349,7 @@ translate assembly code to machine code
 
 ---
 
-# Y86-64 vs x86-64, CISC vs RISC
+# Y86-64 vs x86-64
 
 Complex Instruction Set Computer & Reduced Instruction Set Computer
 
@@ -447,7 +477,6 @@ Y86-64 Assembly
   - 需要先 `irmovq` 一下
 - 在算数指令中不能使用内存操作数
   - 需要先 `rmmovq` 一下
-  - （至于为什么，学 SEQ 的时候就知道了）
 - 所有的 `movq` 指令都有前缀指定其功能
   - 注意没有 `mmmovq`
 - 操作数都是 64 位
@@ -464,11 +493,16 @@ Y86-64 Assembly
 
 hardware control language
 
-* 计算机底层是 0（低电压） 和 1（高电压）的世界
-* HCL（硬件 **控制** 语言）是一种硬件 **描述** 语言（HDL），用于描述硬件的逻辑电路
-* HCL 是 HDL 的子集
+<div style="display: flex; align-items: center; gap: 24px;">
+  <ul style="flex: 1; margin: 0;">
+    <li>计算机底层是 0（低电压） 和 1（高电压）的世界</li>
+  </ul>
+  <img src="/03-Arch/01.jpg" alt="你是0，我是1，一起来学计算机" style="display: block; flex-shrink: 0; width: 260px; height: auto;" />
+</div>
 
-<br>
+* HCL（硬件 **控制** 语言）是一种硬件 **描述** 语言（HDL），用于描述硬件的逻辑电路
+* HCL是一种硬件领域的DSL(Domain Specific Language)
+* HCL 是 HDL 的子集
 
 - **组合逻辑电路：输出与输入（几乎）同步，没有存储功能（无状态）**
   - 逻辑门：基本的运算单元
@@ -727,9 +761,88 @@ Arithmetic Logic Unit
 
 ---
 
-# 存储器和时钟
+# 计算理论中的电路
+Circuit Complexity
 
-可能开始不好理解了
+<div class="circuit-theory">
+
+**电路模型**：用与、或、非门描述计算。一个问题对应一族电路 $\{C_n\}$，其中 $C_n$ 处理长度为 $n$ 的输入。
+
+<div class="circuit-theory-columns">
+<div>
+
+### 大小：需要多少个逻辑门？
+
+- **电路大小**是门的数量，反映计算所需的硬件资源。
+- $P/\mathrm{poly}$：可由**多项式大小电路族**解决的判定问题。
+- 已知 $P\subsetneq P/\mathrm{poly}$；通常认为 $NP\nsubseteq P/\mathrm{poly}$。
+- 若能证明某个 $NP$ 问题需要**超多项式大小**的电路，就能证明 $P\ne NP$。
+- 但已知的显式下界仍只有**线性量级**：
+  - 任意双输入门（含 XOR）：已发表结果为 $3.1n-o(n)$；最新预印本提升至 $3.5n-o(n)$。
+  - 与、或、非门：$5n-o(n)$，其中非门不计入大小。
+
+</div>
+<div>
+
+### 深度：并行计算需要多少层？
+
+- **电路深度**是从输入到输出的最长路径上的门数。
+- 对多项式大小、深度为 $O((\log n)^k)$ 的电路族：
+  - $\mathrm{NC}^k$：与、或门最多有两个输入。
+  - $\mathrm{AC}^k$：与、或门的输入数量不受限制。
+- 有 $\mathrm{NC}^k\subseteq\mathrm{AC}^k\subseteq\mathrm{NC}^{k+1}$。
+- 已知 $\mathrm{NC}^0\subsetneq\mathrm{AC}^0\subsetneq\mathrm{NC}^1$：全体输入的 AND 区分前两者，PARITY（所有位的 XOR）区分后两者。
+- 当 $k\ge 1$ 时，是否真包含仍是开放问题。
+
+</div>
+</div>
+</div>
+
+<style>
+.circuit-theory {
+  font-size: 17px;
+  line-height: 1.5;
+}
+.circuit-theory-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 32px;
+  margin-top: 20px;
+}
+.circuit-theory h3 {
+  font-size: 22px;
+  margin: 0 0 12px;
+}
+.circuit-theory li {
+  margin: 6px 0;
+  line-height: 1.5;
+}
+.circuit-theory p {
+  line-height: 1.5;
+}
+</style>
+
+<!--
+本页按非一致电路族讨论。P/poly 是问题类，不是单个电路的记号。
+P 真包含于 P/poly，是因为后者甚至包含不可判定的一元语言。
+NC^0 的单个输出只能依赖常数个输入，因此不能计算所有输入位的 AND。
+PARITY 可以用平衡的 XOR 树在 NC^1 中计算，但不属于 AC^0。
+任意双输入门的 3.1n-o(n) 结果由 Li、Yang 发表于 STOC 2022。
+3.5n-o(n) 为 Mishra、Santhanam 于 2026-10-19 发布的预印本结果；定理给出的更精确形式为 3.5n-O(log n)。
+5n-o(n) 对应 U2 门基，等价于双输入与、或门加免费的非门。
+
+参考：
+https://theory.cs.princeton.edu/complexity/circuitschap.pdf
+https://www.csa.iisc.ac.in/~chandan/courses/complexity15/notes/lec12-13.pdf
+https://hanlin-ren.github.io/files/pdf/focs22_avoidance.pdf
+https://ljt12138.github.io/publication/stoc22-clb
+https://eccc.weizmann.ac.il/report/2026/260/
+https://www.wisdom.weizmann.ac.il/~ranraz/publications/P5nlb.pdf
+-->
+
+---
+
+# 存储器和时钟
 
 组合电路：不存储任何信息，只是一个 `输入` 到 `输出` 的映射（**有一定的延迟**）
 
@@ -788,14 +901,14 @@ memory
 <div grid="~ cols-2 gap-12">
 <div>
 
-以 **地址** 选择读写
+以 **地址或编号** 选择读写位置
 
 包括：
 
-- 虚拟内存系统，寻址范围很大
-- 寄存器文件 / 程序寄存器，个数有限，在 Y86-64 中为 15 个程序寄存器（`%rax` ~ `%r14`）
+- **主存**：用内存地址选择读写位置，容量较大。
+- **寄存器文件**：用寄存器编号选择读写位置。Y86-64 中有 15 个程序寄存器（`%rax` ~ `%r14`）。
 
-可以在一个周期内读取和 / 或写入多个字词
+多个读写端口可以支持一个周期内访问多个字。
 
 **一定要注意“寄存器”这个词在不同语境下的语义差别！**
 
@@ -807,7 +920,7 @@ memory
 
 ![register-file](/03-Arch/register-file.png){.h-50.mx-auto}
 
-两个读端口，一个写端口。srcA 输入查询地址，valA 返回存储在相应程序寄存器的值。
+两个读端口，一个写端口。`srcA` 指定寄存器编号，`valA` 输出对应寄存器的值。
 
 写入通过**时钟**控制，时钟上升时，valW 上的值会被写入 dstW 对应的程序寄存器（0xF 则什么都不做）。
 
@@ -823,7 +936,8 @@ register file 也可以叫做寄存器堆
 
 但是写的时候，受时钟控制
 
-虚拟内存系统同理
+本章的 Y86-64 简化模型不引入虚拟地址翻译。
+寄存器的值可以是内存地址，但选择寄存器所用的编号不是内存地址。
 -->
 
 ---
@@ -930,6 +1044,9 @@ sequential implementation
 
 sequential implementation
 
+<div grid="~ cols-2 gap-12" items-center>
+<div>
+
 ### 2. 译码（Decode）
 
 **操作**：译码阶段从寄存器文件读取操作数，得到 `valA` 和 / 或 `valB`。
@@ -938,6 +1055,17 @@ sequential implementation
 
 也有部分指令会读取 `rsp` 寄存器（`popq` `pushq` `ret` `call`）。
 
+</div>
+<div>
+
+<div style="position: relative;">
+  <img src="/03-Arch/register-file.png" alt="寄存器文件：高亮左侧读端口" style="display: block; width: 100%;" />
+  <div aria-label="Decode 使用左侧读端口" style="position: absolute; left: 1.5%; top: 4%; width: 35%; height: 73%; border: 3px solid #f59e0b; border-radius: 6px; background: rgba(245, 158, 11, 0.12); pointer-events: none;"></div>
+</div>
+<p style="font-size: 18px; text-align: center; color: #fbbf24;">Decode：从左侧读端口读取 valA、valB</p>
+
+</div>
+</div>
 
 ---
 
@@ -946,6 +1074,8 @@ sequential implementation
 sequential implementation
 
 ### 3. 执行（Execute）
+
+<img src="/03-Arch/alu.png" alt="ALU 的四种运算及条件码输出" style="position: absolute; top: 28px; right: 40px; width: 440px; height: auto;" />
 
 **操作**：执行阶段，算术/逻辑单元（ALU）进行运算，包括如下情况：
 
@@ -1002,9 +1132,25 @@ sequential implementation
 
 sequential implementation
 
+<div grid="~ cols-2 gap-12" items-start>
+<div>
+
 ### 5. 写回（Write Back）
 
 **操作**：写回阶段最多可以写 **两个**{.text-sky-5} 结果到寄存器文件（即更新寄存器）。
+
+</div>
+<div>
+
+<div style="position: relative;">
+  <img src="/03-Arch/register-file.png" alt="寄存器文件：高亮右侧写端口" style="display: block; width: 100%;" />
+  <div aria-label="Write back 使用右侧写端口" style="position: absolute; left: 68%; top: 20%; width: 31.5%; height: 43%; border: 3px solid #f59e0b; border-radius: 6px; background: rgba(245, 158, 11, 0.12); pointer-events: none;"></div>
+</div>
+<p style="font-size: 18px; text-align: center; color: #fbbf24;">Write back：通过右侧写端口更新寄存器</p>
+<p style="font-size: 14px; color: #9ca3af;">示意图仅画出一个写端口；SEQ 使用 E、M 两个写端口。</p>
+
+</div>
+</div>
 
 ---
 
@@ -1081,16 +1227,8 @@ sequential implementation
 
 为了统一，在 `popq` 中，用于计算的依旧是 `valB`。
 
-<div text-sm>
-
-- `pushq %rsp` 的行为：`pushq` 压入的是旧的 `%rsp`，然后 `%rsp` 减 8
-- `popq %rsp` 的行为：最终将 `%rsp` 设置为旧的 `M[%rsp]`
-
-↑ 其他情况：
-
 `pushq` 先 -8 再压栈；`popq` 先读出再 +8
 
-</div>
 
 </div>
 
@@ -1457,72 +1595,15 @@ word new_pc = [
 
 sequential implementation: summary
 
-重点关注：
-
-- `valA` 和 `valB` 怎么连的
-- 什么时候 `valP` 可以直传内存
-- 什么时候 `valA` 可以直传内存
-
-<div v-click mt-4>
-
-### 答案：
-
-1. `call`
-2. `rmmovq` `pushq` `popq`（`mrmovq` 需要吗？不！）
-
-</div>
 
 </div>
 
 <div>
 
-
-
 ![seq_hardware](/03-Arch/seq_hardware.png){.h-120.mx-auto}
 
 </div>
 </div>
-
----
-
-# Pipeline
-
-Taoyu Yang, EECS, PKU
-
-<style>
-  div{
-   @apply text-gray-2;
-  }
-</style>
-
----
-
-# 关于 Archlab
-
-- **请仔细完整阅读 writeup！！**
-- Part-B 是助你理解流水线的重要练习
-  - 强烈建议不要用 AI 辅助
-  - 鼓励同学之间互相讨论
-  - 利用 Git 做版本管理会方便不少
-  - 初始下发的 `pipe_s4b.rs` 和 `pipe_s4c.rs` 有问题，请对照群消息修改或者下载最新版
-  - ~~可能听完这次课你也不理解流水线，但自己写完 Part-B 是一定可以理解的~~
-- Part-C
-  - 仔细读评分标准可以发现 arch cost 这个指标可能比你想象中重要！
-  - 不是几年前狂卷 CPE 的时代了
-  - ac 如何降到 3 呢，仔细想想！
-- **注意 DDL 是 11 月 3 号！！！尽早开始写**
-- ~~这周四就发 cachelab 了，不要 pipelined lab（~~
-
----
-layout: center
-class: text-center
----
-
-# 研讨题分享
-
-<!--
-
--->
 
 
 ---
