@@ -1799,8 +1799,6 @@ PIPE-
 </div>
 
 
-
-
 </div>
 
 <div>
@@ -1812,30 +1810,6 @@ PIPE-
 
 <!--
 注意区分这里的大小写区别。
--->
-
----
-
-# SEQ+ vs PIPE-
-
-<div grid="~ cols-2 gap-12">
-<div>
-
-![seq+_hardware](/03-Arch/seq+_hardware.png){.h-90.mx-auto}
-
-</div>
-
-<div>
-
-![pipe-_hardware](/03-Arch/pipe-_hardware.png){.h-90.mx-auto}
-
-</div>
-</div>
-
-<button @click="$nav.go(43)">🔙</button>
-
-<!--
-在 SEQ+ 的基础上，把每个阶段的信号给放到流水线寄存器里面存下来
 -->
 
 ---
@@ -1875,29 +1849,26 @@ selectA 的逻辑其实就是，回顾 SEQ，只有 call 在 M 阶段需要 valP
 
 ---
 
-# PIPE- 分支预测
+# SEQ+ vs PIPE-
 
-PIPE- branch prediction
+<div grid="~ cols-2 gap-12">
+<div>
 
-**分支预测**：猜测分支方向并根据猜测开始取指的技术。
+![seq+_hardware](/03-Arch/seq+_hardware.png){.h-90.mx-auto}
 
-对于 `jXX` 指令，有两种情况：
+</div>
 
-- 分支不执行：下一条 PC 是 `valP`
-- 分支执行：下一条 PC 是 `valC`
+<div>
 
-由于我们现在是流水线，我们需要每个时钟周期都能给出一个指令地址用于取址，所以我们采用分支预测：
+![pipe-_hardware](/03-Arch/pipe-_hardware.png){.h-90.mx-auto}
 
-最简单的策略：总是预测选择了条件分支，因而预测 PC 的新值为 `valC`。
+</div>
+</div>
 
-对于 `ret` 指令，我们等待它通过写回 `W` 阶段（从而可以从 `M` 中得到之前压栈的返回值并更新 `PC`）。
-
-> 同条件转移不同，`ret` 可能的返回值几乎是无限的，因为返回地址是位于栈顶的字，其内容可以是任意的。
+<button @click="$nav.go(43)">🔙</button>
 
 <!--
-我们希望每个时钟周期都发射一条新指令
-
-always taken
+在 SEQ+ 的基础上，把每个阶段的信号给放到流水线寄存器里面存下来
 -->
 
 ---
@@ -1914,6 +1885,8 @@ hazards
 <!-- 提醒大家仔细听 -->
 
 ---
+clicks: 5
+---
 
 # 数据冒险
 
@@ -1922,23 +1895,12 @@ data hazard
 <div grid="~ cols-2 gap-8">
 <div>
 
-数据冒险是相对容易理解的。
-
 在右图代码中，`%rax` 的值需要在第 6 个周期结束时才能完成写回，但是在 第 6 个周期内，正处于译码阶段的 `addq` 指令就需要使用 `%rax` 的值了。这就产生了数据冒险。
 
 类似可推得，如果一条指令的操作数被它前面 3 条指令中的任意一条改变的话，都会出现数据冒险。
 
 我们需要满足：当后来的需要某一寄存器的指令处于译码 D 阶段时，该寄存器的值必须已经更新完毕（即已经 **完成** 写回 W 阶段）。
 
-<div class="text-sm">
-
-以 2F 的左边缘作为起始时刻，则：
-
-$$
-5(完成 W) - 1(开始 D，即完成 F) - 1(错开一条指令) = 3
-$$
-
-</div>
 
 
 </div>
@@ -1947,11 +1909,13 @@ $$
 
 
 
-![data_hazard](/03-Arch/data_hazard.png){.mx-auto}
+<DataHazardTimeline :cycle="$clicks + 1" @click.stop="$nav.next()" />
 
 </div>
 </div>
 
+---
+clicks: 10
 ---
 
 # 数据冒险的解决：暂停
@@ -1982,8 +1946,9 @@ data hazard resolution: stall
 
 <div>
 
-![stall](/03-Arch/stall.png){.mx-auto}
+<PipelineTimeline scenario="stall" :cycle="$clicks + 1" @click.stop="$nav.next()" />
 
+<!--
 <div class="text-xs">
 
 - ↑ 5W、6W 的右边缘蓝色线代表直到此处，这条指令才能正确的更新寄存器，在 5W、6W 块内起始已经准备好了值，但是由于没有到时钟上升沿，所以并没有写入到只有在时钟上升沿才会采样输入、更新其内值的寄存器文件（注意不是流水线寄存器）。
@@ -1995,6 +1960,7 @@ data hazard resolution: stall
 - 寄存器文件：保存的是当前所有寄存器（`%rax` `%rbx` 等等）的值
 
 </div>
+-->
 
 
 </div>
@@ -2028,6 +1994,8 @@ stall vs bubble
 </div>
 
 ---
+clicks: 7
+---
 
 # 数据冒险的解决：转发
 
@@ -2036,9 +2004,9 @@ data hazard resolution: forwarding
 <div grid="~ cols-2 gap-12">
 <div>
 
-实际上，在这里，所需要的真实  `%rax` 值，早在 4E 快结束时（其内红线）就已经计算出来了（3E 同理）。
+在第 4 周期，`%rdx` 的正确值 10 位于 `M_valE`；`%rax` 的正确值 3 由本周期的 E 阶段产生，位于 `e_valE`。
 
-而我们需要用到它的是 5E 的开始（此时，5E 阶段的组合逻辑即将从其左边缘红线所代表的 E 执行阶段流水线寄存器中取出 `valA` `valB` `valC` 用于计算）。
+同周期的 `addq` 在 D 阶段。两路转发把正确值送到 `d_valA`、`d_valB`，并在周期末存入 E 流水线寄存器，供第 5 周期执行时使用。
 
 回忆：大写的寄存器是在对应阶段开始时就已经是正确的值。
 
@@ -2047,11 +2015,13 @@ data hazard resolution: forwarding
 <div>
 
 
-![data_hazard_2](/03-Arch/data_hazard_2.png){.mx-auto}
+<PipelineTimeline scenario="forwarding" :cycle="$clicks + 1" @click.stop="$nav.next()" />
 
 </div>
 </div>
 
+---
+clicks: 15
 ---
 
 # 数据冒险的解决：转发
@@ -2060,18 +2030,18 @@ data hazard resolution: forwarding
 
 **转发**：将结果值直接从一个流水线阶段传到较早阶段的技术。
 
-这个过程可以发生在许多阶段（下图中，要到 6E 寄存器才定下来，所以只要在时钟上升沿来之前，都来得及）。
+转发源可以位于 E、M、W 阶段。下图分别展示间隔一条 `nop` 和相邻指令的转发。
 
 <div grid="~ cols-2 gap-12">
 <div>
 
-![forward_1](/03-Arch/forward_1.png){.mx-auto.h-80}
+<PipelineTimeline scenario="forwardingGap" :cycle="$clicks + 1" @click.stop="$nav.next()" />
 
 </div>
 
 <div>
 
-![forward_2](/03-Arch/forward_2.png){.mx-auto.h-80}
+<PipelineTimeline scenario="forwarding" :cycle="$clicks - 7" @click.stop="$nav.next()" />
 
 </div>
 </div>
@@ -2086,12 +2056,9 @@ data hazard: load / use hazard
 - 如果在先前指令的 M 访存阶段（其内靠后时）才能得到正确值，且后面指令紧跟其后，那么当我们实际得到正确值时，必然赶不上后面指令的 E 寄存器最终确定，所以我们必须暂停流水线。
 - 所以，加载 / 使用冒险发生在 `mrmovq` 或 `popq` 后立即使用其目的寄存器的情况。
 
-<div class="text-sm text-gray-5">
 
-书上老说什么把值送回过去，我觉得第一次读真难明白吧。
-
-</div>
-
+---
+clicks: 6
 ---
 
 # 特殊的数据冒险：加载 / 使用冒险
@@ -2101,21 +2068,23 @@ data hazard: load / use hazard
 <div grid="~ cols-2 gap-12">
 <div>
 
-在这里，所需要的真实  `%rax` 值，在 8M 快结束时（其内红线）才能从内存中取出，位于 `m_valM`。
+第 7 周期，`addq` 已在 D 阶段需要读取 `%rax`，但此时只能读到旧值 0。
 
-而我们需要用到它的是 8E 的开始（此时，8E 阶段的组合逻辑即将从其左边缘红线所代表的 E 执行阶段流水线寄存器中取出 `valA` `valB` `valC` 用于计算）。
+此时 `mrmovq` 还在 E 阶段，只算出了访存地址。所需的新值要到下一周期的 M 阶段才能从内存中读出。
 
-在图中可以清晰看出，这存在时间上的错位，所以是不可能的。
+因此必须在第 7 周期检测到冒险并暂停 D，向下一周期的 E 插入气泡，避免 `addq` 带着旧值继续执行。
 
 </div>
 
 <div>
 
-![load_use_hazard](/03-Arch/load_use_hazard.png){.mx-auto}
+<PipelineTimeline scenario="loadUse" :cycle="$clicks + 1" @click.stop="$nav.next()" />
 
 </div>
 </div>
 
+---
+clicks: 11
 ---
 
 # 加载 / 使用冒险解决方案：暂停 + 转发
@@ -2130,17 +2099,17 @@ load / use hazard solution
 - 译码阶段中的指令暂停 1 个周期
 - 执行阶段中插入 1 个气泡
 
-此时，`m_valM` 的值已经更新完毕，所以可以转发到 `d_valA`（然后被用于存入 `E_valA`）。
+此时，`m_valM` 的值已经更新完毕，所以可以转发到 `d_valB`（然后被用于存入 `E_valB`）。
 
 `m_valM`：在 M 阶段内，取出的内存值
 
-`d_valA`：在 D 阶段内，计算得到的即将设置为 `E_valA` 的值
+`d_valB`：在 D 阶段内，计算得到的即将设置为 `E_valB` 的值
 
 </div>
 
 <div col-span-2>
 
-![load_use_hazard_solution](/03-Arch/load_use_hazard_solution.png){.mx-auto.h-100}
+<PipelineTimeline scenario="loadStall" :cycle="$clicks + 1" @click.stop="$nav.next()" />
 
 </div>
 </div>
@@ -2291,25 +2260,35 @@ word f_pc = [
 </div>
 
 ---
+clicks: 10
+---
 
 # 控制冒险：RET
 
 control hazard: RET
 
-![control_hazard_ret](/03-Arch/control_hazard_ret.png){.mx-auto.h-45}
+<div grid="~ cols-2 gap-8">
+<div text-sm>
 
-涉及取指 F 阶段的不能转发中间结果 `m_valM`，必须等到流水线寄存器 `W_valM` 更新完毕！
+`ret` 在 M 阶段从栈中读出返回地址。教材 PIPE 等它进入 `W_valM` 后，再用于 F 阶段取指。
 
-为什么：取址阶段没有相关的硬件电路处理中间结果的转发！必须是流水线寄存器同步。
+`ret` 处于 D、E、M 时，暂停 F，并向 D 注入气泡；进入 W 后恢复正确取指。
 
-所以需要插入 3 个气泡（以 3F 的左边缘作为起始时刻）：
+教材没有设置 `m_valM → F` 的转发路径，避免把数据内存读取和指令内存读取串在同一周期的关键路径上。
 
-$$
-4(\text{RET } 完成 M) - 0(开始 F) - 1(错开一条指令) = 3
-$$
+因此取指暂停 3 个周期，产生 3 个气泡。
 
-为什么是气泡：<button @click="$nav.go(17)">💡暂停 vs 气泡</button> 暂停保留状态，气泡清空状态。
+</div>
+<div>
 
+<PipelineTimeline scenario="ret" :cycle="$clicks + 1" @click.stop="$nav.next()" />
+
+</div>
+</div>
+
+
+---
+clicks: 9
 ---
 
 # 控制冒险：JXX
@@ -2326,7 +2305,7 @@ control hazard: JXX
 
 <div>
 
-![control_hazard_jxx](/03-Arch/control_hazard_jxx.png){.mx-auto.h-40}
+<PipelineTimeline scenario="branch" :cycle="$clicks + 1" compact @click.stop="$nav.next()" />
 
 </div>
 </div>
@@ -2359,6 +2338,8 @@ bool E_bubble = branch_mispred || load_use_hazard
 </div>
 
 ---
+clicks: 9
+---
 
 # 控制冒险：JXX
 
@@ -2367,20 +2348,20 @@ control hazard: JXX
 <div grid="~ cols-2 gap-12">
 <div text-sm>
 
-1. 在第 4 个时钟周期内靠后的位置，在 4E 处的红线所在的执行阶段，通过组合逻辑计算得到 `jne` 的条件没有满足
-2. 于是这个信息被转发到了前面同一周期的 D、F 阶段，而这两个阶段正在分别进行运算，以准备第 5 个时钟周期初始的 E、D 流水线寄存器（两个蓝色框右边缘）
-3. 得到转发的信息后，他们分别通过设置两个值 `E_bubble` `D_bubble`（右图未画出），以告诉下一阶段
-4. 进入到第 5 个时钟周期后，E、D 阶段首先读取 E、D 流水线寄存器，发现各自的 `Bubble` 信号为真时，便会用 Bubble 气泡的 `nop` 指令顶掉第 5 个时钟周期时的 E、D 阶段的指令（也即第 4 个时钟周期时的 D、F 阶段的指令），从而实现了气泡的插入，且顶掉了错误的指令。
+1. 第 4 周期，`jne` 在 E 阶段判断条件不满足，发现预测失败。
+2. 此时，错误路径的两条指令分别位于 D、F，尚未改变程序员可见状态。
+3. 控制逻辑在本周期内置 `E_bubble`、`D_bubble`，使 E、D 流水线寄存器在周期末装入气泡，而不是错误指令。
+4. 第 5 周期，D、E 执行气泡；F 根据 M 阶段保存的顺序地址，重新取出正确路径的指令。
 
 </div>
 
 <div>
 
-![control_hazard_jxx](/03-Arch/control_hazard_jxx.png){.mx-auto.h-40}
+<PipelineTimeline scenario="branch" :cycle="$clicks + 1" @click.stop="$nav.next()" />
 
 <div class="text-sm">
 
-↑深蓝色框里是插入气泡的逻辑发生位置，深蓝色框右边缘代表得出的气泡信号存储到的流水线寄存器，左边缘代表得到转发开始设置的时间。
+第 4 周期检测预测失败；第 5 周期可看到 D、E 中的气泡，原错误路径指令被划去。
 
 </div>
 
@@ -2847,6 +2828,8 @@ word Stat = [
 </div>
 
 ---
+clicks: 21
+---
 
 # 异常处理（气泡 / 暂停）：取指阶段
 
@@ -2855,32 +2838,28 @@ bubble / stall in fetch stage
 注意：bubble 和 stall 不能同时为真。
 
 ```hcl
-# 是否向流水线寄存器 F 注入气泡？
-bool F_bubble = 0; # 恒为假
-# 是否暂停流水线寄存器 F？
-bool F_stall = 
-  # 加载/使用数据冒险时，要暂停 1 个周期的译码，进而也需要暂停 1 个周期的取指
+bool F_bubble = 0;
+bool F_stall =
   E_icode in { IMRMOVQ, IPOPQ } && E_dstM in { d_srcA, d_srcB } ||
-  # 当 ret 指令通过流水线时暂停取指，一直等到 ret 指令得到 W_valM
   IRET in { D_icode, E_icode, M_icode };
-
-// 实际就是 F_stall = load_use_hazard || ret_hazard
 ```
 
 <div grid="~ cols-2 gap-12" relative>
 <div>
 
-![load_use_hazard_solution_stall](/03-Arch/load_use_hazard_solution_stall.png){.mx-auto}
+<PipelineTimeline scenario="loadStall" :cycle="$clicks + 1" focus="F" compact @click.stop="$nav.next()" />
 
 </div>
 
 <div>
 
-![control_hazard_ret_stall](/03-Arch/control_hazard_ret_stall.png){.mx-auto}
+<PipelineTimeline scenario="ret" :cycle="$clicks - 10" focus="F" compact @click.stop="$nav.next()" />
 
 </div>
 </div>
 
+---
+clicks: 19
 ---
 
 # 异常处理（气泡 / 暂停）：译码阶段
@@ -2891,31 +2870,28 @@ bubble / stall in decode stage
 
 
 ```hcl
-# 是否暂停流水线寄存器 D？
-# 加载/使用数据冒险
 bool D_stall = E_icode in { IMRMOVQ, IPOPQ } && E_dstM in { d_srcA, d_srcB };
-# 是否向流水线寄存器 D 注入气泡？
-bool D_bubble = 
-  # 分支预测错误
+bool D_bubble =
   (E_icode == IJXX && !e_Cnd) ||
-  # 当 ret 指令通过流水线时暂停 3 次译码阶段，但要求不满足读取/使用数据冒险的条件
   !(E_icode in { IMRMOVQ, IPOPQ } && E_dstM in { d_srcA, d_srcB }) && IRET in { D_icode, E_icode, M_icode };
 ```
 
 <div grid="~ cols-2 gap-12">
 <div>
 
-![control_hazard_jxx_bubble_1](/03-Arch/control_hazard_jxx_bubble_1.png){.mx-auto}
+<PipelineTimeline scenario="branch" :cycle="$clicks + 1" focus="D" compact @click.stop="$nav.next()" />
 
 </div>
 
 <div>
 
-![control_hazard_ret_bubble](/03-Arch/control_hazard_ret_bubble.png){.mx-auto} 
+<PipelineTimeline scenario="ret" :cycle="$clicks - 8" focus="D" compact @click.stop="$nav.next()" />
 
 </div>
 </div>
 
+---
+clicks: 20
 ---
 
 # 异常处理（气泡 / 暂停）：执行阶段
@@ -2926,26 +2902,22 @@ bubble / stall in execute stage
 
 
 ```hcl
-# 是否需要阻塞流水线寄存器 E？
 bool E_stall = 0;
-# 是否向流水线寄存器 E 注入气泡？
-bool E_bubble = 
-  # 错误预测的分支
-  (E_icode == IJXX && !e_Cnd) || 
-  # 负载/使用冒险条件
+bool E_bubble =
+  (E_icode == IJXX && !e_Cnd) ||
   (E_icode in { IMRMOVQ, IPOPQ } && E_dstM in { d_srcA, d_srcB });
 ```
 
 <div grid="~ cols-2 gap-12">
 <div>
 
-![control_hazard_jxx_bubble_2](/03-Arch/control_hazard_jxx_bubble_2.png){.mx-auto}
+<PipelineTimeline scenario="branch" :cycle="$clicks + 1" focus="E" compact @click.stop="$nav.next()" />
 
 </div>
 
 <div>
 
-![load_use_hazard_solution_bubble](/03-Arch/load_use_hazard_solution_bubble.png){.mx-auto}
+<PipelineTimeline scenario="loadStall" :cycle="$clicks - 8" focus="E" compact @click.stop="$nav.next()" />
 
 </div>
 </div>
@@ -3115,6 +3087,35 @@ tips
 
 ---
 
+# *Static Direction Predication
+
+- Always Not Taken: $40\%$
+- Always Taken: $60\%$
+- BTFNT (Backward Taken, Forward Not Taken): $65\%$
+- Compiler Directed: $75\%$
+
+---
+
+# *Dynamic Direction Predication
+
+- 1-Bit History: $80\%$
+- 2-Bit History: $90\%$
+- Branch Correlation: $96\%$
+- Hybrid Predictor (a.k.a Tournament Predictor): $97\%$
+
+--- 
+
+# GPipe: 流水线并行(PP)
+
+- 《GPipe: Easy Scaling with Micro-Batch Pipeline Parallelism》
+- 通过将模型分层, 在不同卡上存不同层的权重, 实现从前到后的Pipeline
+
+<div grid="~ cols-2 gap-6" class="items-center mt-6">
+  <img src="/03-Arch/GPipe.png" alt="GPipe 的模型分层、前向与反向传播及微批次流水线" class="w-full h-[300px] object-contain" />
+  <img src="/03-Arch/GPipe-4D.png" alt="4 张卡上的 GPipe 与同步 1F1B 调度对比" class="w-full h-[300px] object-contain" />
+</div>
+
+---
 layout: cover
 class: text-center
 coverBackgroundUrl: /03-Arch/cover.jpg
@@ -3123,7 +3124,6 @@ coverBackgroundUrl: /03-Arch/cover.jpg
 # Thank you for your listening!
 
 
-Cat$^2$Fish❤
 
 <style>
   div{

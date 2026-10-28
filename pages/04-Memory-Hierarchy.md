@@ -32,7 +32,7 @@ coverBackgroundUrl: /04-Memory-Hierarchy/cover.jpg
 ---
 # Memory Hierarchy
 
-Taoyu Yang, EECS, PKU
+Menghong Yu, EECS, PKU
 
 <style>
   div{
@@ -231,8 +231,6 @@ Enhanced DRAM
 
 </div>
 </div>
-
-省流：全都是 DRAM 的增强版，和 SRAM 没有关系。
 
 ---
 
@@ -574,8 +572,6 @@ Questions
 
 <div v-click>
 
-答案：B
-
 - A. 选项中 SRAM 和 DRAM 位置反了
 - C. 选项中，硬盘容量 1GB=$10^9$ Byte，因此容量应该为 8.192GB（回忆：内存及以上存储器使用 2 的幂次，硬盘使用 10 的幂次）
 - D. 选项中，平均旋转延迟为 $0.5\times(60\text{s}/6000\text{RPM})=5\text{ms}$，平均访问时间为 $9\text{ms} + 5\text{ms} = 14\text{ms}$
@@ -657,10 +653,12 @@ D. 假设旋转速率未知，在通常情况下我们可以简单估计 $a = 60
 
 
 <div v-click class="text-sm">
-答案：D
 A.	磁盘容量为2wxyz / 10^9 GB
+
 B.	访问一个磁盘扇区内容的平均时间为 (60/a * 1/2 * 1000 + 60/a / w * 1000 + b) ms
+
 C.	访问一个磁盘扇区中512个字节的时间主要是寻道时间和旋转延迟。访问扇区中的 第一个字节用了很长时间，但是访问剩下的字节几乎不用时间。
+
 D.	假设旋转速率未知，在通常情况下我们可以简单估计 a = 60/b * 1/2 * 1000 RPM（书上提到可以用寻道时间的两倍来估计访问时间，故可以用寻道时间估计旋转延迟）
 
 </div>
@@ -679,48 +677,54 @@ D.	假设旋转速率未知，在通常情况下我们可以简单估计 a = 60/
 
 ---
 
-# Cache
+# FlashAttention
 
-Taoyu Yang, EECS, PKU
+<img src="/04-Memory-Hierarchy/FlashAttn.png" alt="FlashAttention 利用存储层次分块计算，减少 HBM 访存" class="w-full h-[210px] object-contain my-3" />
 
-<style>
-  div{
-   @apply text-gray-2;
-  }
-</style>
+<div class="text-[16px] leading-snug">
+
+- 《FlashAttention: Fast and Memory-Efficient Exact Attention
+with IO-Awareness》
+
+- 不妨设$S=\frac{QK^t}{\sqrt{d}}$, 回忆Attention的计算是$\mathrm{softmax}(S)V$. 
+- 然而, 如果我们直接把整个$S$一开始就全算出来, 由于它太大, 无法在上一级内存中完全存下, 不得不写回到显存, 这就提供了大量的访存开销
+- FlashAttn的做法是: 分块计算$S_{ij}=Q_iK_j^\top/\sqrt d$, 局部做softmax先求出答案. 由于softmax本质上不过是先$x\mapsto e^x$然后再做归一化, 因此最后可以再把不同的局部softmax结果合并, 从而省去了大量的显存消耗.
+
+</div>
 
 ---
 
-# 存储器层次结构
+# 基于Cache的侧信道攻击(CPU)
 
-Memory Hierarchy
-
-<div grid="~ cols-2 gap-12">
+<div grid="~ cols-2 gap-8" class="items-center mt-8">
 <div>
 
-- 越靠近 CPU 的存储器，速度越快，单位比特成本越高，容量越小
-- 越远离 CPU 的存储器，速度越慢，单位比特成本越低，容量越大
+- 《Last-Level Cache Side-Channel Attacks are Practical》
 
-通常，我们使用 $L_k$ 层作为 $L_{k+1}$ 层的缓存
-
-如果我们要在 $L_{k+1}$ 中寻找数据块 $a$，我们首先应该在 $L_k$ 中查找。
-
-- **缓存命中**：如果能找到，我们就不必访问 $L_{k+1}$
-- **缓存不命中**：如果找不到，我们才去访问 $L_{k+1}$（那就要花较长时间来复制了）
-
+- OpenAI最新新闻：[训练环境安全](https://openai.com/index/securing-our-frontier-model-training-environment/)
 
 </div>
-
-<div>
-
-![memory_hierarchy](/04-Memory-Hierarchy/memory_hierarchy.png)
-
-</div>
+<img src="/04-Memory-Hierarchy/Side-Channel.png" alt="攻击者与受害者的虚拟机通过不同核心共享末级缓存" class="w-full h-[340px] object-contain" />
 </div>
 
-<!--
-那么不命中的话，就要从 $L_{k+1}$ 取出，如果 $L_k$ 满了就涉及到驱逐的问题。
--->
+---
+
+# GPU结构
+
+<img src="/04-Memory-Hierarchy/GPU.png" alt="GPU 的 GPC、SM 结构，以及 CUDA kernel、线程块和 warp 的层次关系" class="w-full h-[240px] object-contain my-3" />
+
+<div class="text-[16px] leading-snug">
+
+- CPU将一个kernel扔给GPU, 并提供一个Grid指定需要的Block(一个Block包含$256$个线程).
+- 对于每个Block, GPU为它分配一个SM模块. 此后该Block一直滞留在该SM上直到任务完成. 不同的SM可以同时运行.
+- SM的Warp Scheduler每次挑选一个Block(通常包含$256$线程)中的一个Warp(通常包括$32$个线程), 把它扔到一组core上操作. 有的SM还可以挑选多个Warp放到不同core上并行操作
+- 一组core可以同时操作$16$个线程, 它会操作两轮将一个Warp的一步操作完.
+- GPU上同样可以做侧信道攻击, 可以见《Rendered Insecure: GPU Side Channel A!acks are Practical》
+- 关于如何刻画"数据在GPU上的layout", 至今仍是一个研究方向.
+  - MMA swizzling
+  - 《Linear Layouts: Robust Code Generation of Efficient Tensor Computation Using F2》
+
+</div>
 
 ---
 
