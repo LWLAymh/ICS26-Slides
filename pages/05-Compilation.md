@@ -32,7 +32,7 @@ coverBackgroundUrl: /05-Compilation/cover.jpg
 ---
 # Compilation
 
-Taoyu Yang, EECS, PKU
+Menghong Yu, EECS, PKU
 
 <style>
   div{
@@ -48,7 +48,7 @@ Program Optimization
 
 - 本章主要关注优化处理器执行程序的性能（Performance）
 - 而不是优化程序的时间复杂度
-  - 例如排序：冒泡排序 $O(n^2)$ 与快排 $O(n)$
+  - 例如排序：冒泡排序 $O(n^2)$ 与快排平均 $O(n\log n)$
 - 而是想办法让处理器执行程序的速度更快
   - 例如减少函数调用/提升指令并行度……
   - 实际上是在做**常数优化**
@@ -83,42 +83,1008 @@ modern CPU
 - $k\times k$ 循环展开：$k$ 路，$k$ 个累积变量。
 - 循环展开的路数越多不一定效果越好。
 
----
-layout: center
----
-
-# 复习小练习
 
 ---
 
-# Linking
+# 代码移动：把不变的计算移出循环
 
-Taoyu Yang, EECS, PKU
+<div grid="~ cols-2 gap-8">
+<div>
 
-<style>
-  div{
-   @apply text-gray-2;
+优化前：
+
+<div class="optimization-diff">
+
+```c {2}
+for (long j = 0; j < n; j++)
+  a[n * i + j] = b[j];
+```
+
+</div>
+
+</div>
+<div class="text-[17px] leading-normal">
+
+优化后：
+
+<div class="optimization-diff">
+
+```c {1,3}
+long ni = n * i;
+for (long j = 0; j < n; j++)
+  a[ni + j] = b[j];
+```
+
+</div>
+
+</div>
+</div>
+
+- 循环中只有 `j` 改变，`n * i` 每次的结果相同，可以提前计算。
+- 编译器还可以提前算出行首指针 `double *row = a + ni`。
+- 判断依据：移出循环后，计算结果与程序行为保持不变。
+
+<!--
+参考：ICS14-optimization-20261102.pdf，第 6–7 页。
+-->
+
+---
+
+# 强度削减：用递增代替重复乘法
+
+<div grid="~ cols-2 gap-8">
+<div>
+
+逐行计算起始位置：
+
+<div class="optimization-diff">
+
+```c {2}
+for (long i = 0; i < n; i++) {
+  long ni = n * i;
+  for (long j = 0; j < n; j++)
+    a[ni + j] = b[j];
+}
+```
+
+</div>
+
+</div>
+<div class="text-[17px] leading-normal">
+
+利用相邻行相差 n 个元素：
+
+<div class="optimization-diff">
+
+```c {1,5}
+long ni = 0;
+for (long i = 0; i < n; i++) {
+  for (long j = 0; j < n; j++)
+    a[ni + j] = b[j];
+  ni += n;
+}
+```
+
+</div>
+
+</div>
+</div>
+
+- 地址依次为 $0,n,2n,3n,\ldots$，可以通过加法逐次生成。
+- 指针递增也是常见形式：用 `p++` 推进到下一个元素。
+- 是否更快取决于目标机器；这类简单变换通常也能由编译器完成。
+
+<!--
+参考：ICS14-optimization-20261102.pdf，第 8 页。
+-->
+
+---
+
+# 公共子表达式：复用共同的基址
+
+<div grid="~ cols-2 gap-8">
+<div>
+
+求矩阵中一个元素的四个邻居：
+
+<div class="optimization-diff">
+
+```c {1-4}
+up    = val[(i - 1) * n + j];
+down  = val[(i + 1) * n + j];
+left  = val[i * n + j - 1];
+right = val[i * n + j + 1];
+sum = up + down + left + right;
+```
+
+</div>
+
+</div>
+<div class="text-[17px] leading-normal">
+
+先计算共同的基址：
+
+<div class="optimization-diff">
+
+```c {1-5}
+long pos = i * n + j;
+up    = val[pos - n];
+down  = val[pos + n];
+left  = val[pos - 1];
+right = val[pos + 1];
+sum = up + down + left + right;
+```
+
+</div>
+
+</div>
+</div>
+
+- 将重复的地址计算合并，让 `i * n + j` 只计算一次。
+- 编译器既可以复用完全相同的表达式，也可以识别这种地址关系。
+
+<!--
+参考：ICS14-optimization-20261102.pdf，第 9 页。
+-->
+
+---
+
+# 优化例子：冒泡排序
+
+<div grid="~ cols-2 gap-8">
+<div>
+
+原始写法：
+
+<div class="optimization-diff">
+
+```c {2-6}
+for (long end = n - 1; end > 0; end--)
+  for (long j = 0; j < end; j++)
+    if (a[j] > a[j + 1]) {
+      int t = a[j];
+      a[j] = a[j + 1];
+      a[j + 1] = t;
+    }
+```
+
+</div>
+
+</div>
+<div class="text-[17px] leading-normal">
+
+复用读出的值，并递增指针：
+
+<div class="optimization-diff">
+
+```c {2-7}
+for (long end = n - 1; end > 0; end--) {
+  int *last = a + end;
+  for (int *p = a; p < last; p++) {
+    int x = p[0], y = p[1];
+    if (x > y) {
+      p[0] = y;
+      p[1] = x;
+    }
   }
-</style>
+}
+```
+
+</div>
+
+</div>
+</div>
+
+- 比较时已经读出两个元素，交换时可以直接复用；相邻地址用指针递增生成。
+- 排序算法仍是冒泡排序；减少的是地址计算、重复加载等内循环开销。
+
+<!--
+参考：ICS14-optimization-20261102.pdf，第 10–18 页。
+-->
 
 ---
 
-# 一些安排
+# 过程调用：循环里的 strlen
 
-- 请注意 Cache Lab 将于 11 月 13 日 23:59 截止
-- Shell Lab 将于 11 月 13 日 15:00 发布，11 月 27 日 23:59 截止
-  - 在月考后大家将有充足的时间完成
-  - 该 Lab 难度可能会更大，大家在充分理解 ECF 内容的基础上进行代码编写
-  
-<br>
+<div grid="~ cols-2 gap-8">
+<div>
 
-- 关于考试：
-  - 下周一，11 月 17 日
-  - 很遗憾我们这节课肯定没法讲完 Linking + ECF 的全部内容
-    - 能讲完 ECF1 就不错了x
-    - 但难点在于 ECF2
-  - 考试范围：arch + cache + program optimization + linking + ECF
-  - 这一部分内容难度并不低，大家抓紧复习
+每次判断循环条件都调用：
+
+<div class="optimization-diff">
+
+```c {2}
+void lower1(char *s) {
+  for (size_t i = 0; i < strlen(s); i++)
+    if (s[i] >= 'A' && s[i] <= 'Z')
+      s[i] += 'a' - 'A';
+}
+```
+
+</div>
+
+</div>
+<div class="text-[17px] leading-normal">
+
+字符串长度在转换过程中不变：
+
+<div class="optimization-diff">
+
+```c {2-3}
+void lower2(char *s) {
+  size_t len = strlen(s);
+  for (size_t i = 0; i < len; i++)
+    if (s[i] >= 'A' && s[i] <= 'Z')
+      s[i] += 'a' - 'A';
+}
+```
+
+</div>
+
+</div>
+</div>
+
+- `strlen(s)` 扫描到字符串末尾，每次需要 $O(n)$ 时间。
+- 左边调用约 $n$ 次，整体为 $O(n^2)$；右边只扫描一次，整体为 $O(n)$。
+- 关键是消除隐藏的重复工作，不能只数代码中显式写出的循环层数。
+
+<!--
+参考：ICS14-optimization-20261102.pdf，第 21–26 页。
+-->
+
+---
+
+# 编译器为什么不能总替你移动函数调用
+
+<div grid="~ cols-2 gap-8">
+<div>
+
+<div class="optimization-diff">
+
+```c {7}
+size_t lencnt = 0;
+
+size_t my_strlen(const char *s) {
+  size_t len = 0;
+  while (s[len] != '\0')
+    len++;
+  lencnt += len;  // 修改全局状态
+  return len;
+}
+```
+
+</div>
+
+</div>
+<div class="text-[17px] leading-normal">
+
+- 返回值相同，不代表函数没有副作用。
+
+- 如果把多次 `my_strlen` 调用合并成一次，`lencnt` 的最终结果就会改变。
+
+- 即使函数本身无副作用，循环中的写入也可能改变下一次调用读取的内容。
+
+- 让编译器看到函数实现，有助于分析和内联；程序员也可以显式提前计算不变的结果。
+
+</div>
+</div>
+
+优化必须保持程序行为；编译器无法证明安全时，就需要保守处理。{.text-sky-5}
+
+<!--
+参考：ICS14-optimization-20261102.pdf，第 20、27 页。
+-->
+
+---
+
+# 内存别名：为什么不能省掉写入
+
+<div grid="~ cols-2 gap-8">
+<div>
+
+<div class="optimization-diff">
+
+```c {4,6}
+void sum_rows1(double *a, double *b,
+               long n) {
+  for (long i = 0; i < n; i++) {
+    b[i] = 0;
+    for (long j = 0; j < n; j++)
+      b[i] += a[i * n + j];
+  }
+}
+```
+
+</div>
+
+</div>
+<div class="text-[17px] leading-normal">
+
+- `a` 指向矩阵，`b` 指向每一行的和。
+
+- 内循环每轮都要读写 `b[i]`，而不是只在寄存器中累加。
+
+- **内存别名（aliasing）**：不同的指针或表达式，可能访问同一个内存位置。
+
+- 若 `b[i]` 正好也是矩阵中的某个元素，写入 `b[i]` 就会改变后续读取的 `a[...]`。
+
+</div>
+</div>
+
+因此，编译器不能无条件把这些读写全部移到循环外。
+
+<!--
+参考：ICS14-optimization-20261102.pdf，第 28–29 页。
+-->
+
+---
+
+# 别名反例：输出向量位于输入矩阵内部
+
+<div grid="~ cols-2 gap-8">
+<div>
+
+<div class="optimization-diff">
+
+```c {6}
+double A[9] = {
+   0,  1,   2,
+   4,  8,  16,
+  32, 64, 128
+};
+double *B = A + 3;
+
+sum_rows1(A, B, 3);
+```
+
+</div>
+
+</div>
+<div class="text-[17px] leading-normal">
+
+<div class="text-[16px]">
+
+| 执行进度 | B 的内容 |
+| :--- | :--- |
+| 初始 | `[4, 8, 16]` |
+| 第 0 行结束 | `[3, 8, 16]` |
+| 第 1 行结束 | `[3, 22, 16]` |
+| 第 2 行结束 | `[3, 22, 224]` |
+
+</div>
+
+</div>
+</div>
+
+- 计算第 1 行时，先将 `B[1]`（即 `A[4]`）清零。
+- 随后累加：$0+3=3$；再读 `A[4]` 时读到的是刚写入的 3，因此得到 $3+3+16=22$。
+- 中间写入确实会影响后续读取，不能随意省掉。
+
+<!--
+参考：ICS14-optimization-20261102.pdf，第 29 页。
+-->
+
+---
+
+# 用局部变量消除不必要的内存引用
+
+<div grid="~ cols-2 gap-8">
+<div>
+
+<div class="optimization-diff">
+
+```c {4,6-7}
+void sum_rows2(double *a, double *b,
+               long n) {
+  for (long i = 0; i < n; i++) {
+    double sum = 0;
+    for (long j = 0; j < n; j++)
+      sum += a[i * n + j];
+    b[i] = sum;
+  }
+}
+```
+
+</div>
+
+</div>
+<div class="text-[17px] leading-normal">
+
+- 在 `a` 与 `b` 不重叠的用法中，可以先在局部变量中累加。
+
+- 内循环每轮只读一个矩阵元素；每一行结束时才写一次 `b[i]`。
+
+- `sum` 可放在寄存器中，避免反复加载、存储中间结果。
+
+- 若沿用上一页的重叠输入，本版本得到 `[3, 27, 224]`，与原版本不同。
+
+</div>
+</div>
+
+这是程序员根据实际数据关系作出的改写；编译器不能无条件用它替换原版本。{.text-sky-5}
+
+<!--
+参考：ICS14-optimization-20261102.pdf，第 30–31 页。
+-->
+
+---
+
+# 用 CPE 衡量向量程序的性能
+
+<div grid="~ cols-2 gap-8">
+<div>
+
+<div class="optimization-diff">
+
+```c {2-6}
+void combine1(vec_ptr v, data_t *dest) {
+  *dest = IDENT;
+  for (long i = 0; i < vec_length(v); i++) {
+    data_t val;
+    get_vec_element(v, i, &val);
+    *dest = *dest OP val;
+  }
+}
+```
+
+</div>
+
+</div>
+<div class="text-[17px] leading-normal">
+
+**向量归约**：将所有元素相加或相乘。
+
+- `OP` 为 `+` 时，`IDENT = 0`。
+- `OP` 为 `*` 时，`IDENT = 1`。
+- `get_vec_element` 还包含边界检查。
+
+**CPE（Cycles Per Element）**：平均处理一个元素所需的时钟周期数。
+
+</div>
+</div>
+
+$$
+T(n) \approx \mathrm{CPE}\cdot n + T_{\mathrm{overhead}}
+$$
+
+固定开销之外，CPE 是“总周期数随元素数增长”的斜率，越小越好。
+
+<!--
+参考：ICS14-optimization-20261102.pdf，第 34–37 页。
+-->
+
+---
+
+# 基础优化：combine1 → combine4
+
+<div grid="~ cols-2 gap-8">
+<div>
+
+<div class="optimization-diff">
+
+```c {2-7}
+void combine4(vec_ptr v, data_t *dest) {
+  long n = vec_length(v);
+  data_t *d = get_vec_start(v);
+  data_t x = IDENT;
+  for (long i = 0; i < n; i++)
+    x = x OP d[i];
+  *dest = x;
+}
+```
+
+</div>
+
+</div>
+<div class="text-[17px] leading-normal">
+
+- 将长度计算移出循环。
+
+- 直接访问数据数组，减少取元素的函数调用和重复边界检查。
+
+- 输出不覆盖输入时，用寄存器中的 `x` 累加，循环结束后才更新 `*dest`。
+
+</div>
+</div>
+
+<div class="text-[16px]">
+
+<div>讲义中的测量结果（CPE）：</div>
+
+| 版本 | 整数加 | 整数乘 | double 加 | double 乘 |
+| :--- | :---: | :---: | :---: | :---: |
+| combine1，未优化 | 22.68 | 20.02 | 19.98 | 20.18 |
+| combine1，-O1 | 10.12 | 10.12 | 10.17 | 11.14 |
+| combine4 | **1.27** | **3.01** | **3.01** | **5.01** |
+
+</div>
+
+<!--
+参考：ICS14-optimization-20261102.pdf，第 35–39 页。
+-->
+
+---
+
+# 超标量与执行单元的流水化
+
+- **超标量**：同一周期可发射、执行多条指令，利用多个执行单元并行工作。
+- **执行单元流水化**：一次运算分为多级，不同运算可以在不同级重叠进行。
+
+下面只用一个三阶段乘法单元，计算 `p1 = a*b`、`p2 = a*c`、`p3 = p1*p2`：
+
+<div class="text-[16px]">
+
+| 阶段 / 周期 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| 第 1 级 | a*b | a*c | | | p1*p2 | | |
+| 第 2 级 | | a*b | a*c | | | p1*p2 | |
+| 第 3 级 | | | a*b | a*c | | | p1*p2 |
+
+</div>
+
+- 单次乘法需要 3 个周期，但独立乘法可以每周期启动一次。
+- `p3` 必须等 `p1`、`p2` 都算完，因此直到第 5 周期才能启动。
+
+<!--
+参考：ICS14-optimization-20261102.pdf，第 40–42 页。
+-->
+
+---
+
+# 动态调度：Scoreboard（记分牌）
+
+集中记录状态，决定指令何时读取操作数、执行和写回。
+
+<img src="/05-Compilation/ScoreBoard.png" alt="Scoreboard 的指令状态、功能单元状态和寄存器状态三张表" class="w-full h-[210px] object-contain my-4" />
+
+<div class="text-[18px] leading-normal">
+
+- **读图**：左表记录指令进度，中表记录功能单元和操作数状态，右表记录哪个单元将写入寄存器。
+- **动态调度**：等数据的指令先等待；无依赖、资源可用的就绪指令可以先执行。
+- **限制**：不做寄存器重命名，名称冲突（WAR / WAW）仍需通过停顿处理。
+
+</div>
+
+<!--
+图：项目已有 public/05-Compilation/ScoreBoard.png。
+参考：University of Washington，Scoreboard / Tomasulo 课程讲义，第 13–16 页：
+https://courses.cs.washington.edu/courses/csep548/00sp/lectures/class10.pdf
+-->
+
+---
+
+# 动态调度：Tomasulo
+
+用保留站保存待执行的指令，用 Tag 跟踪操作数来自哪一次计算。
+
+<div grid="~ cols-5 gap-6" class="items-center">
+<div class="col-span-3">
+
+<img src="/05-Compilation/Tumasulo.png" alt="Tomasulo 的保留站、寄存器 Tag、执行单元和公共数据总线 CDB" class="w-full h-[330px] object-contain" />
+
+</div>
+<div class="col-span-2 text-[17px] leading-normal">
+
+- **保留站（RS）**：保存指令和已有操作数；数据未到时，用 Tag 记下“等谁的结果”。
+
+- **寄存器重命名**：用不同 Tag 区分同名寄存器的不同次结果，消除 WAR / WAW 名称冲突。
+
+- **结果广播（CDB）**：结果连同 Tag 广播，等待它的保留站接收后，操作数便准备好了。
+
+</div>
+</div>
+
+真正的数据依赖（RAW）仍需等待结果。{.text-sky-5}
+
+<!--
+图：项目已有 public/05-Compilation/Tumasulo.png；图内部分数字是该示例的配置。
+参考：Duke ECE 252，Dynamic Scheduling I，第 33 页及后续 Tomasulo 讲解：
+https://people.ee.duke.edu/~sorin/ece252/lectures/4.2-tomasulo.pdf
+-->
+
+---
+
+# 延迟、发射间隔、容量与吞吐率
+
+- **延迟 D**：从启动运算到结果可用，需要多少个周期。
+- **发射间隔 I**：同一个执行单元接收两次运算，至少间隔多少个周期。
+- **容量 M**：有多少个执行单元能够完成这种运算。
+- 操作数相互独立时，理想吞吐率为 $M/I$ 次运算 / 周期。
+
+<div class="text-[16px]">
+
+讲义中的 Haswell 示例：
+
+| 运算 | 延迟 D | 发射间隔 I | 单元数 M | 理想吞吐率 |
+| :--- | :---: | :---: | :---: | :---: |
+| 整数加法 | 1 | 1 | 4 | 4 次 / 周期 |
+| 整数乘法 | 3 | 1 | 1 | 1 次 / 周期 |
+| double 加法 | 3 | 1 | 1 | 1 次 / 周期 |
+| double 乘法 | 5 | 1 | 2 | 2 次 / 周期 |
+
+</div>
+
+<!--
+参考：ICS14-optimization-20261102.pdf，第 41–43、49 页。
+-->
+
+---
+
+# 数据依赖与关键路径
+
+<div class="optimization-diff">
+
+```c {2-3}
+data_t x = IDENT;
+for (long i = 0; i < n; i++)
+  x = x OP d[i];
+```
+
+</div>
+
+```mermaid
+flowchart LR
+  s["x 初值"] --> a["OP d[0]"] --> b["OP d[1]"] --> c["OP d[2]"] --> z["⋯"]
+```
+
+- 每次运算都需要上一次更新后的 `x`，形成一条串行依赖链。
+- **关键路径**是必须依次完成、累计延迟最长的依赖路径；它限制总执行时间。
+- 若一次 `OP` 的延迟为 $D$，这条链约需 $nD$ 个周期，因而 $\mathrm{CPE} \gtrsim D$。
+- 即使还有空闲执行单元，也无法提前启动依赖尚未满足的下一次累加。
+
+<!--
+参考：ICS14-optimization-20261102.pdf，第 44–45 页。
+-->
+
+---
+
+# 循环展开：2×1
+
+<div grid="~ cols-2 gap-8">
+<div>
+
+<div class="optimization-diff">
+
+```c {3-4}
+data_t x = IDENT;
+long i = 0;
+for (; i < n - 1; i += 2)
+  x = (x OP d[i]) OP d[i + 1];
+
+for (; i < n; i++)
+  x = x OP d[i];
+*dest = x;
+```
+
+</div>
+
+</div>
+<div class="text-[17px] leading-normal">
+
+- 每次循环处理 **2 个元素**，但只有 **1 个累加器**。
+
+- 减少循环条件判断、索引更新和跳转的次数。
+
+- 尾循环处理剩余的一个元素，避免漏算或越界。
+
+- 运算仍按原顺序依赖同一个 `x`；依赖链中的运算次数没有减少。
+
+</div>
+</div>
+
+讲义中的 double 乘法：CPE 仍约为 5。单纯展开没有解除乘法的串行依赖。
+
+<!--
+参考：ICS14-optimization-20261102.pdf，第 46–47 页。
+-->
+
+---
+
+# 重新结合：2×1a
+
+<div grid="~ cols-2 gap-8">
+<div class="text-[17px] leading-normal">
+
+保持左结合：
+
+<div class="optimization-diff">
+
+```c {1}
+x = (x OP d[i]) OP d[i + 1];
+```
+
+</div>
+
+改为先计算一对元素：
+
+<div class="optimization-diff">
+
+```c {1}
+x = x OP (d[i] OP d[i + 1]);
+```
+
+</div>
+
+- `d[i] OP d[i+1]` 不依赖之前的 `x`，可以提前计算。
+- 累加器依赖链每处理两个元素，只需经过一次 `OP`。
+- 依赖链的长度约减半，延迟下界从 $D$ 降到 $D/2$。
+
+</div>
+<div>
+
+<img src="/05-Compilation/2x1a.png" alt="2×1a 重新结合的数据流图：先计算相邻元素的乘积，再沿累加器依赖链合并" class="w-full h-[320px] object-contain" />
+
+<div class="text-sm text-center mt-2">
+
+图以乘法为例：绿色先计算元素对，粉色更新累加器。
+
+</div>
+</div>
+</div>
+
+其余展开循环和尾循环与 2×1 相同。讲义中的 double 乘法 CPE 从约 5 降至约 2.5。
+
+<!--
+参考：ICS14-optimization-20261102.pdf，第 48–50 页。
+-->
+
+---
+
+# 重新结合为什么可能改变浮点结果
+
+浮点运算有舍入，**加法、乘法一般不满足结合律**。
+
+<div grid="~ cols-2 gap-8">
+<div>
+
+<div class="optimization-diff">
+
+```c {5-6}
+double a = 1e20;
+double b = -1e20;
+double c = 3.14;
+
+double x = (a + b) + c;  // 约 3.14
+double y = a + (b + c);  // 约 0
+```
+
+</div>
+
+</div>
+<div class="text-[17px] leading-normal">
+
+- 左边先计算 `a + b`，得到 0，再加上 3.14。
+
+- 右边先计算 `b + c`，小的 3.14 被舍入掉；再与 `a` 相加，得到 0。
+
+- 重新结合和多个累加器会改变浮点运算的顺序，因此编译器不能在要求保持原语义时任意改写。
+
+</div>
+</div>
+
+采用这类优化前，需要确认应用允许相应的浮点误差变化。
+
+<!--
+参考：ICS14-optimization-20261102.pdf，第 33、48 页。
+-->
+
+---
+
+# 多个累加器：2×2
+
+<div grid="~ cols-2 gap-8">
+<div class="text-[17px] leading-normal">
+
+<div class="optimization-diff">
+
+```c {1,3-5,8-9}
+data_t x0 = IDENT, x1 = IDENT;
+long i = 0;
+for (; i < n - 1; i += 2) {
+  x0 = x0 OP d[i];
+  x1 = x1 OP d[i + 1];
+}
+for (; i < n; i++)
+  x0 = x0 OP d[i];
+*dest = x0 OP x1;
+```
+
+</div>
+
+- 每次循环处理 **2 个元素**，使用 **2 个独立累加器**。
+- `x0` 处理偶数下标，`x1` 处理奇数下标；最后再合并。
+- 两条依赖链之间没有依赖，可以交错执行。
+- 每条链约有 $n/2$ 次运算，延迟下界约为 $D/2$。
+
+</div>
+<div>
+
+<img src="/05-Compilation/2x2.png" alt="2×2 多累加器的数据流图：偶数下标与奇数下标各自独立累加，最后合并" class="w-full h-[320px] object-contain" />
+
+<div class="text-sm text-center mt-2">
+
+图以乘法为例：两条独立的累加链最后合并。
+
+</div>
+</div>
+</div>
+
+与 2×1 相比，关键变化是增加独立的累加器，让更多运算能够并行。
+
+<!--
+参考：ICS14-optimization-20261102.pdf，第 51–53 页。
+-->
+
+---
+
+# 两个累加器对应两条独立的数据流
+
+```mermaid
+flowchart LR
+  a["x0 初值"] --> a0["OP d[0]"] --> a2["OP d[2]"] --> a4["⋯ 偶数下标"]
+  b["x1 初值"] --> b1["OP d[1]"] --> b3["OP d[3]"] --> b5["⋯ 奇数下标"]
+  a4 --> m["x0 OP x1"]
+  b5 --> m
+```
+
+- 一条链等待结果时，处理器可以推进另一条链。
+- 对延迟为 5 个周期的乘法，两个累加器将依赖限制降至约 **2.5 CPE**。
+- 继续增加独立链，可以进一步隐藏延迟；最终仍会遇到执行单元或加载的吞吐率限制。
+
+<!--
+参考：ICS14-optimization-20261102.pdf，第 51–54 页。
+-->
+
+---
+
+# 展开 L 路、使用 K 个累加器
+
+- **展开因子 L**：一次循环处理多少个元素。
+- **累加器数 K**：把计算分成多少条独立依赖链；讲义的均匀分配方案取 $L$ 为 $K$ 的倍数。
+
+$$
+\mathrm{CPE}\gtrsim\max\left(\frac{D}{K},\frac{I}{M},\mathrm{CPE}_{\mathrm{load}}\right)
+$$
+
+<div class="text-[16px]">
+
+讲义中的 Haswell double 乘法（D = 5，每周期最多发射 2 次乘法、加载 2 个元素）：
+
+| 展开 L / 累加器 K | 1 / 1 | 2 / 2 | 4 / 4 | 8 / 8 | 10 / 10 | 12 / 12 |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| 实测 CPE | 5.01 | 2.51 | 1.25 | 0.63 | 0.51 | 0.52 |
+
+</div>
+
+- 本例下界为 $\max(5/K,0.5)$，约 10 个累加器时接近吞吐率极限。
+- 展开更多不一定更快：还有尾循环、代码体积和寄存器压力等开销。
+
+<!--
+参考：ICS14-optimization-20261102.pdf，第 54–56 页。
+-->
+
+---
+
+# 循环展开的性能对比
+
+<div class="text-[16px]">
+
+<div>讲义中的 Haswell 标量测量，单位为 CPE（越小越好）：</div>
+
+| 版本 | 整数加 | 整数乘 | double 加 | double 乘 |
+| :--- | :---: | :---: | :---: | :---: |
+| combine4 | 1.27 | 3.01 | 3.01 | 5.01 |
+| 2×1：只展开 | 1.01 | 3.01 | 3.01 | 5.01 |
+| 2×1a：重新结合 | 1.01 | 1.51 | 1.51 | 2.51 |
+| 2×2：双累加器 | 0.81 | 1.51 | 1.51 | 2.51 |
+| 讲义中最佳标量实现 | **0.54** | **1.01** | **1.01** | **0.52** |
+| 吞吐率下界 | 0.50 | 1.00 | 1.00 | 0.50 |
+
+</div>
+
+- 只展开主要减少循环开销；改变数据依赖，才能突破原来的延迟限制。
+- 即使整数加法单元足够多，每周期只能加载 2 个元素，也使本例 CPE 难低于 0.5。
+
+<!--
+参考：ICS14-optimization-20261102.pdf，第 47、49、52、57 页。
+-->
+
+---
+
+# SIMD：一条指令处理多个元素
+
+**SIMD（Single Instruction, Multiple Data）**：同一条指令对多个元素分别执行相同操作。
+
+在 x86-64 的 AVX2 中，一个 YMM 寄存器为 **256 位（32 字节）**：
+
+<div grid="~ cols-2 gap-8">
+<div>
+
+<div class="text-[16px]">
+
+| 数据类型 | 每个 YMM 中的元素数 |
+| :--- | :---: |
+| float（32 位） | 8 |
+| double（64 位） | 4 |
+
+</div>
+
+对应的向量加法：
+
+```asm
+vaddps %ymm0, %ymm1, %ymm1
+vaddpd %ymm0, %ymm1, %ymm1
+```
+
+</div>
+<div class="text-[16px]">
+
+讲义实测 CPE，按原数组的标量元素计：
+
+| 实现 | 整数加 | 整数乘 | 浮点加 | 浮点乘 |
+| :--- | :---: | :---: | :---: | :---: |
+| 最佳标量 | 0.54 | 1.01 | 1.01 | 0.52 |
+| 最佳向量 | **0.06** | **0.24** | **0.25** | **0.16** |
+
+浮点列均为 double。
+
+</div>
+</div>
+
+SIMD 扩大每条指令处理的数据量；循环展开和多个累加器仍可继续用于隐藏指令延迟。
+
+<!--
+参考：ICS14-optimization-20261102.pdf，第 58–60 页。
+-->
+
+---
+
+# 补充：Rust 与优化阻碍
+
+- **副作用（Side effects）**：Rust 允许定义全局变量，但读取或写入可变全局变量 static mut 需要 unsafe。
+
+- **别名约束（Aliasing）**：借用的基本规则是，同一时刻，对同一份数据二选一：
+  - **一个可变引用 `&mut T`**，提供独占的读写访问；
+  - **多个共享引用 `&T`**，提供共享的只读访问。
+
+- **优化意义**：更明确的别名约束，有助于编译器分析内存依赖，消除不必要的访存并安排指令执行。
+
+> 觉得这样做很不优美? 有没有在不影响写法的情况下就客服Aliasing的方法呢? 
+
+> 我们将在Concurrency一节讲述我目前的主要研究方向: Separation Logic, 以及获得了2015年哥德尔奖的成果Concurrent Separation Logic(CSL)
+<!--
+这里介绍普通数据的基本借用规则；内部可变性等机制不在本页展开。
+参考：The Rust Programming Language，References and Borrowing：
+https://doc.rust-lang.org/book/ch04-02-references-and-borrowing.html
+参考：Rust static 关键字文档：
+https://doc.rust-lang.org/stable/core/keyword.static.html
+-->
+
+---
+
+# 补充：E-graph 与等式饱和
+
+《egg: Fast and Extensible Equality Saturation》{.text-sm}
+
+<img src="/05-Compilation/Egraph.png" alt="E-graph 随着等价重写逐步扩展，将 (a×2)/2 与 a 等表达式合并到等价类中" class="w-full h-[205px] object-contain my-3" />
+
+<div class="text-[17px] leading-normal">
+
+- **重写顺序**：先用哪条规则，可能影响之后还能做哪些优化。
+- **E-graph**：用等价类和共享结构，紧凑地保留多种等价表达式；图中虚线框表示等价类。
+- **等式饱和（Equality saturation）**：反复加入重写得到的等价形式，最后按成本模型，从已有候选中提取更优的实现。
+
+</div>
+
+每条重写规则都必须符合目标语言的数值语义。{.text-sm.text-sky-5}
+
+<!--
+图：项目已有 public/05-Compilation/Egraph.png，egg 论文中的示例；按图示重写成立的代数语义理解，不直接视为任意 C 整数或浮点表达式都成立的规则。
+参考：Willsey et al., egg: Fast and Extensible Equality Saturation (POPL 2021)：
+https://arxiv.org/abs/2004.03082
+参考：egg 官方教程 Background：
+https://github.com/egraphs-good/egg/blob/main/src/tutorials/_01_background.rs
+-->
 
 ---
 

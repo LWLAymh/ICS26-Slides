@@ -1,0 +1,10 @@
+.optimization-diff .slidev-code .slidev-code-highlighted {
+  display: inline-block;
+  width: 100%;
+  background: rgba(245, 158, 11, 0.16);
+  box-shadow: inset 3px 0 #f59e0b;
+}
+
+.optimization-diff .slidev-code .slidev-code-dishonored {
+  opacity: 0.65;
+}

@@ -32,7 +32,7 @@ coverBackgroundUrl: /08-Network/cover.jpg
 ---
 # 网络编程
 
-Network Programming
+Taoyu Yang, EECS, PKU
 
 <style>
   div{
