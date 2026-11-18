@@ -8,3 +8,8 @@
 .optimization-diff .slidev-code .slidev-code-dishonored {
   opacity: 0.65;
 }
+
+.linking-table th,
+.linking-table td {
+  padding: 4px 8px;
+}
