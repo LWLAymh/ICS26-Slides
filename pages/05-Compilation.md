@@ -1118,7 +1118,11 @@ Linking
 
 From source code to executable file
 
-![compile_system](/05-Compilation/compile_system.png)
+```text
+main.c → 预处理 → main.i → 编译 → main.s → 汇编 → main.o ─┐
+add.c  → 预处理 → add.i  → 编译 → add.s  → 汇编 → add.o  ─┼→ 链接 → demo
+data.c → 预处理 → data.i → 编译 → data.s → 汇编 → data.o ─┘
+```
 
 $$
 \text{.c} \xrightarrow{\text{cpp}} \text{.i} \xrightarrow{\text{cc1}} \text{.s} \xrightarrow{\text{as}} \text{.o} \xrightarrow{\text{ld}} \text{prog}
@@ -1145,48 +1149,19 @@ $$
 
 # 静态链接
 
-Static Linking
+Static Linking：本节始终使用下面这三个源文件
 
-<div grid="~ cols-2 gap-12">
-<div>
+<LinkingDemoSources />
 
-### main.c
-```c
-#include "sum.h"  // 从头文件引入函数声明
-int array[2] = {1, 2};  
 
-int main()  
-{  
-    int val = sum(array, 2);  
-    return val;  
-}
+```sh
+gcc -g -O0 -c main.c add.c data.c
+gcc main.o add.o data.o -o demo
 ```
 
-### sum.c
-```c
-#include "sum.h"
-int sum(int *a, int n)   // 这里定义了函数
-{  
-    int i, s = 0;  
-    for (i = 0; i < n; i++) {  
-        s += a[i];  
-    }  
-    return s;  
-}
-```
+- `demo.h` 提供声明；`main.c` 使用 `x/y/add`，`add.c` 和 `data.c` 提供定义。
+- 每个 `.c` 分别生成一个 `.o`，再由链接器组合成 `demo`；运行后 `main` 返回 `5`。
 
-</div>
-
-<div flex="~ col justify-center items-center">
-
-![compile_system](/05-Compilation/compile_system.png)
-
-![static_linking](/05-Compilation/static_linking.png){.h-60}
-
-<div class="text-sm"><code>sum.h</code> 中声明：<code>int sum(int *a, int n);</code></div>
-
-</div>
-</div>
 
 ---
 
@@ -1259,82 +1234,47 @@ ELF 可重定位目标文件
 
 ---
 
-# 链接例子：仍然从 add(x, y) 开始
+# 链接例子：从 add(x, y) 开始
 
-两个参数来自 `.data`、`.bss`；再加一个只在 `add.c` 内使用的 `bias`
+沿用前面的三个文件：x、y 在 data.c 中定义，bias 只在 add.c 内使用
 
-<div grid="~ cols-2 gap-10">
-<div>
+<LinkingDemoSources />
 
-### main.c
+<div class="linking-table text-[18px] leading-normal mt-5">
 
-```c
-#include "add.h"
-int x = 2;  // .data
-int y = 0;      // .bss
-
-int main(void) {
-    y = 3;
-    return add(x, y);
-}
-```
+| 文件 | 提供的定义 | 需要其他文件提供 |
+| --- | --- | --- |
+| `main.o` | `main` | `x`、`y`、`add` |
+| `add.o` | `add`；私有的 `bias` | 无 |
+| `data.o` | `x`、`y` | 无 |
 
 </div>
-<div>
 
-### add.h
-
-```c
-int add(int a, int b);
-```
-
-### add.c
-
-```c
-#include "add.h"
-static int bias = 0;
-
-int add(int a, int b) {
-    return a + b + bias;
-}
-```
-
-</div>
-</div>
-
-```sh
-gcc -g -O0 -c main.c add.c  # 分别生成 main.o、add.o
-gcc main.o add.o -o demo   # 链接，生成可执行文件
-```
-
-最后 `main` 返回 `5`；下面看链接器怎样把这两个文件接起来。{.text-sm.text-sky-5}
+`x = 2` 放在 .data；`y = 0`、`bias = 0` 放在 .bss。接下来看链接器怎样把这三个文件接起来。{.text-sm.text-sky-5}
 
 <!--
 本例沿用本课 C / x86-64 ELF 环境与分离编译模型，省略启动文件等系统组件。
-bias 具有内部链接和静态存储期，零初始化时位于 .bss；在 -O0 下便于对应代码与符号信息。
-返回值为进程退出状态 5，不是向终端打印字符 5。
-参考：https://gabi.xinuos.com/elf/03-sheader.html
-参考：https://gabi.xinuos.com/elf/05-symtab.html
+完整代码与动画共用 components/linkingAnimationData.ts 中的定义。
+bias 具有内部链接和静态存储期，在 -O0 下便于对应代码与符号信息。
+main 的返回值为进程退出状态 5，不是向终端打印字符 5。
 -->
+
 
 ---
 
 # .s 到 .o：机器指令和说明一起留下
 
-汇编器分别把 `main.s`、`add.s` 变成 ELF 可重定位目标文件 `main.o`、`add.o`
+main.s、add.s、data.s 分别汇编成 main.o、add.o、data.o
 
 <div grid="~ cols-2 gap-10">
 <div>
 
-### main.c 对应的操作
+### main.c 中的使用
 
 <div class="optimization-diff">
 
-```c {2-3,6-7}
-#include "add.h"
-int x = 2;
-int y = 0;
-
+```c {3-4}
+#include "demo.h"
 int main(void) {
     y = 3;
     return add(x, y);
@@ -1342,20 +1282,21 @@ int main(void) {
 ```
 
 </div>
+
+`x/y` 的定义在 `data.c`，见前页。
 
 </div>
 <div class="text-[19px] leading-normal">
 
 ### main.o 中已经有
 
-- `main` 的机器指令，以及 `x` 的初值。
-- `y` 所需空间的记录。
-- 符号信息：本文件定义了 `x`、`y`、`main`，还需要别处定义的 `add`。
-- 重定位记录：指令中哪些地方还要根据最终位置修改。
+- `main` 的机器指令。
+- 符号表：定义 `main`，外部引用 `x/y/add`。
+- 重定位记录：哪些指令字段还需修补。
 
 ### 还没确定
 
-`add` 的实现来自哪里，以及代码、数据在最终程序中的位置。
+`x/y/add` 的定义来自哪里，以及代码、数据在最终程序中的位置。
 
 </div>
 </div>
@@ -1363,246 +1304,221 @@ int main(void) {
 ELF 文件同时保存“要运行的内容”和“帮助链接器把它们接起来的说明”。{.text-sm.text-sky-5}
 
 <!--
-范围是本课 ELF 工具链；不同系统的目标文件格式不在本页展开。
-x、y 的输入节及节内位置可以确定，最终布局尚待链接。
+范围是本课 ELF 工具链。data.o 中 x/y 的输入节及节内位置可确定，最终布局尚待链接。
 参考：https://gabi.xinuos.com/elf/03-sheader.html
 参考：https://gabi.xinuos.com/elf/06-reloc.html
 -->
 
+
+---
+clicks: 6
 ---
 
-# 读 main.o：先找到文件里的目录
+# 动画：三个 .c 分别生成怎样的 ELF？
 
-在查找 add 之前，先确定符号表、代码和数据分别放在文件哪里
+沿用同一组 main.c、add.c、data.c，逐个展开代码、数据和链接说明
 
-<div grid="~ cols-2 gap-12">
-<div class="text-[19px] leading-normal">
+<ElfBuildAnimation :step="$clicks" @click.stop="$nav.next()" />
 
-### ELF 头和节头部表
+<!--
+本页与前后代码共用同一组三文件例子；demo.h 提供 add 的函数声明与 x/y 的 extern 声明。
+每个 .o 分两步展示“代码/数据”和“链接说明”，只是讲解顺序，不宣称汇编器实际分两遍工作。
+仅显示相关节；省略调试节、其他元数据及具体文件偏移。data.o 没有本例需修补的地址引用，不绘制虚构的 .rela.text。
+源代码与展示数据统一定义在 components/linkingAnimationData.ts。
+参考：https://gabi.xinuos.com/elf/03-sheader.html
+参考：https://gabi.xinuos.com/elf/05-symtab.html
+参考：https://gabi.xinuos.com/elf/06-reloc.html
+-->
 
-1. **ELF 头**说明文件格式，并告诉链接器节头部表在文件中的位置。
-2. **节头部表**像目录，记录各节的位置、大小和属性。
-3. 据此找到 `.text`、`.symtab`、`.strtab`、`.rela.text` 等部分。
-
-此时找到的是“去哪里读说明、代码和数据”，接下来才会按名字查 `add`。
-
-</div>
-<div>
-
-![relocatable_object_file](/05-Compilation/relocatable_object_file.png)
-
-</div>
-</div>
 
 ---
 
-# 对照 add 例子：代码和数据放在哪些节？
+# 如何从 ELF 中找到符号信息？
 
-x、y、bias 的定义与 main、add 的机器指令各有归属
-
-<div grid="~ cols-2 gap-12">
-<div>
-
-### 节
-
-
-`.text`：已编译程序的机器代码，如本例的 `main`、`add`
-
-`.rodata`：只读<span class="text-sm text-gray-5">（read-only）</span>数据，如 `printf` 中的格式串、开关语句的跳转表、字符串常量等
-
-`.data`：保存初始化数据，如本例 `x` 的初值 `2`
-
-`.bss`：为零初始化数据记录空间，如本例的 `y = 0` 和 `bias = 0`。
-
-<span class="text-sm text-gray-5">
-
-`.bss` 在文件里不保存一整块零；加载时为 `y`、`bias` 提供置零的内存空间。
-
-</span>
-
-</div>
-
-
-<div>
-
-
-![relocatable_object_file](/05-Compilation/relocatable_object_file.png)
-
-</div>
-</div>
-
----
-
-# 读 main.o：名字、定义与待修补处
-
-同一行 `return add(x, y);`，会用到下面几种说明
+沿用 add.o：先找到表的位置，再读取表里的记录
 
 <div grid="~ cols-2 gap-10">
-<div class="optimization-diff">
+<div class="text-[19px] leading-relaxed">
 
-```c {2-3}
-// main.c 中的使用
-y = 3;
-return add(x, y);
+1. **读 ELF 头**：用 `e_shoff` 找到节头部表。
+2. **读节头部表**：找到 `.symtab` 的文件位置，以及其中每条记录的大小。
+3. **找关联的字符串表**：`.symtab` 的节头条目中，`sh_link` 指向它使用的 `.strtab`。
+
+现在就能逐条读符号记录，并到字符串表里取出对应的名字。
+
+</div>
+<div>
+
+### add.o 中的目录关系（示意）
+
+```text
+ELF 头
+  e_shoff → 节头部表
+
+节号  节名        文件位置
+ 1    .text      ...
+ 2    .bss       ...
+ 3    .symtab    ...
+ 4    .strtab    ...
+
+.symtab 的 sh_link = 4
+       → 使用第 4 个节的字符串表
 ```
 
-<div class="text-[19px] leading-relaxed">
-
-- **`.symtab`**：记录 `x/y` 的定义，以及本文件还需要 `add`。
-- **`.strtab`**：保存 `"x"`、`"y"`、`"add"` 这些名字，供符号表引用。
-- **`.rela.text`**：记录机器指令里，哪些位置还需根据它们的地址修改。
-
 </div>
 </div>
-<div class="text-[19px] leading-relaxed">
 
-### 数据里存地址，也要留记录
+.strtab 保存符号名；.shstrtab 保存 .text、.symtab 等节名。{.text-sm.text-sky-5}
 
-若在 `main.c` 中再增加一个全局变量：
+<!--
+目录中的节号为教学示意，后两页沿用同样的 .text=1、.bss=2；省略第 0 个节及无关节。
+实际识别符号表可按节类型 SHT_SYMTAB，不依赖上述示意节号。
+sh_offset、sh_size、sh_entsize 分别给出文件偏移、节大小和表项大小。
+参考：https://gabi.xinuos.com/elf/03-sheader.html
+-->
+
+
+---
+
+# .symtab 的一条记录长什么样？
+
+一条记录不直接存名字，而是保存名字的偏移、符号属性和所在位置
+
+<div grid="~ cols-2 gap-10">
+<div class="text-[18px] leading-relaxed">
+
+- `st_name`：名字在关联的 `.strtab` 中的字节偏移。
+- `st_info`：把**类型**和**绑定属性**放在一起，例如函数 / 数据、全局 / 局部。
+- `st_shndx`：所在节的编号；`UNDEF` 表示本文件没有提供定义。
+- `st_value`：在可重定位目标文件中，已定义符号在所在节内的偏移。
+- `st_size`：符号占多少字节。
+
+</div>
+<div>
+
+### ELF64 的符号表项
 
 ```c
-int *p = &x;
+typedef struct {
+    Elf64_Word    st_name;  // 名字偏移
+    unsigned char st_info;  // 类型、绑定
+    unsigned char st_other; // 可见性
+    Elf64_Half    st_shndx; // 节号
+    Elf64_Addr    st_value; // 值 / 节内偏移
+    Elf64_Xword   st_size;  // 大小
+} Elf64_Sym;
 ```
 
-`p` 的初值需要包含 `x` 的地址，这处待修补信息记在 **`.rela.data`** 中。
+</div>
+</div>
 
-节的名字，如 `.text`、`.data`，通常保存在 **`.shstrtab`** 中。
+例如：add 是 GLOBAL / FUNC，bias 是 LOCAL / OBJECT；下一页把名字和这些属性接起来。{.text-sm.text-sky-5}
+
+<!--
+将原先后面的符号表结构页前移到此处，并使用实际的 ELF64 字段名和排列。
+st_info 的高 4 位为 binding、低 4 位为 type；st_other 表示 visibility，不能解释为“是否使用”。
+此处 st_value 的说明针对本例普通已定义符号；特殊节索引留在原有后续页面介绍。
+参考：https://gabi.xinuos.com/elf/05-symtab.html
+-->
+
+
+---
+
+# 把 .symtab 和 .strtab 对起来：读出 add
+
+下面是 add.o 中与本例相关的两条记录，数字为示意
+
+<div class="linking-table text-[18px] leading-normal">
+
+| st_name | st_info（拆开看） | st_shndx | st_value |
+| --- | --- | --- | --- |
+| `5` | LOCAL / OBJECT | `2` → .bss | `0` |
+| `1` | GLOBAL / FUNC | `1` → .text | `0` |
+
+</div>
+
+<div grid="~ cols-2 gap-10" class="mt-4">
+<div>
+
+### 对应的 .strtab
+
+```text
+字节偏移  0  1 2 3  4  5 6 7 8  9
+内容     \0  a d d \0  b i a s \0
+```
+
+从偏移 `1` 读到下一个 `\0`，得到 `"add"`；从偏移 `5` 开始读，得到 `"bias"`。
+
+</div>
+<div class="text-[18px] leading-relaxed">
+
+### 合起来就知道
+
+- **add**：全局函数，在 `add.o` 的 `.text` 内从偏移 `0` 开始定义。
+- **bias**：局部数据，在本文件 `.bss` 内从偏移 `0` 开始定义。
+
+这里得到的是**哪个文件、哪个节、节内哪里**，最终运行地址还没安排。
 
 </div>
 </div>
 
-接下来就实际查一次：main.o 需要的 add，到底由哪个文件提供？{.text-sm.text-sky-5}
+同样读 main.o：若 add 的 st_shndx 是 UNDEF，就知道它需要别处提供定义。下一页据此维护 E、U、D。{.text-sm.text-sky-5}
 
+<!--
+符号表仅摘录相关记录，不是完整符号表；LOCAL 条目排在 GLOBAL 条目前。
+示意字符串表为字节序列 00 61 64 64 00 62 69 61 73 00。
+名称由当前目标文件的关联字符串表解析，不能用其他目标文件的字符串表解释 st_name。
+参考：https://gabi.xinuos.com/elf/04-strtab.html
+参考：https://gabi.xinuos.com/elf/05-symtab.html
+-->
+
+
+---
+clicks: 11
 ---
 
 # 链接器先读 ELF 里的说明
 
-`gcc main.o add.o -o demo` 把两个 `.o` 交给链接器
-
-<div grid="~ cols-2 gap-10">
-<div>
-
-### 对应的 C 代码
-
-<div class="optimization-diff">
-
-```c {2-3}
-// main.c
-y = 3;
-return add(x, y);
-```
-
-</div>
-
-<div class="optimization-diff">
-
-```c {2-4}
-// add.c
-int add(int a, int b) {
-    return a + b + bias;
-}
-```
-
-</div>
-
-</div>
-<div class="linking-table text-[18px] leading-normal">
-
-### 符号信息（示意）
-
-| 文件 | 名字 | 记录的信息 |
-| --- | --- | --- |
-| `main.o` | `add` | 需要外部定义 |
-| `add.o` | `add` | `.text` 中的定义 |
-| `main.o` | `x/y` | `.data` / `.bss` |
-| `add.o` | `bias` | `.bss` 中的定义 |
-
-这些说明还记录符号在所在节内的位置。
-
-</div>
-</div>
-
-<div class="text-[19px] leading-normal mt-4">
-
-1. 通过 **ELF 头和节头部表** 找到各部分。
-2. 从 **`.symtab`** 读符号信息，从 **`.strtab`** 读出对应的名字。
-3. 将 `main.o` 需要的 `add` 对应到 `add.o` 中的定义，称为**符号解析**。
-
-</div>
+<LinkerSetsAnimation mode="object-scan" :step="$clicks" @click.stop="$nav.next()" />
 
 <!--
-表格概括目标文件信息，不是工具输出的逐字转录。
-ELF 头与节头部表用于定位节；符号表中的名字字段引用关联的字符串表。
-参考：https://gabi.xinuos.com/elf/03-sheader.html
-参考：https://gabi.xinuos.com/elf/04-strtab.html
+沿用 main.c、add.c、data.c 和 demo.h 的同一组代码，三个 .o 已经生成。
+链接器通过 ELF 头与节头部表找到 .symtab，通过关联的 .strtab 读出名字。
+这里按教学顺序逐项展示，不限定实际符号表的条目顺序。未读到的条目保持空白。
+E 是选入的目标文件，U 是未解决的外部引用，D 只展示可供跨文件匹配的全局定义。
+bias 是 add.o 的局部符号，不加入 U 或本页的 D；其地址引用仍由后续重定位处理。
+U 为空说明本例符号解析完成；随后才布局和重定位，不在读取过程中执行代码。
 参考：https://gabi.xinuos.com/elf/05-symtab.html
+参考：https://gabi.xinuos.com/elf/04-strtab.html
 -->
+
 
 ---
 
 # 回看这些信息：全局、局部与外部符号
 
-这三种说法描述“相对于某个目标文件，符号是谁提供、给谁用的”
+同一组代码，按“相对于某个目标文件，符号是谁提供、给谁用的”分类
 
-<div grid="~ cols-2 gap-10">
-<div>
+<LinkingDemoSources />
 
-### main.c
-
-<div class="optimization-diff">
-
-```c {2-3,5,7}
-#include "add.h"
-int x = 2;
-int y = 0;
-
-int main(void) {
-    y = 3;
-    return add(x, y);
-}
-```
-
-</div>
-
-</div>
-<div>
-
-### add.c
-
-<div class="optimization-diff">
-
-```c {2,4-5}
-#include "add.h"
-static int bias = 0;
-
-int add(int a, int b) {
-    return a + b + bias;
-}
-```
-
-</div>
-
-</div>
-</div>
-
-<div class="linking-table text-[18px] leading-normal mt-3">
+<div class="linking-table text-[17px] leading-normal mt-4">
 
 | 类别 | 在这个例子中 | 作用 |
 | --- | --- | --- |
-| **全局符号** | `main.o` 定义的 `main/x/y`；`add.o` 定义的 `add` | 本文件提供，可以被其他文件引用 |
-| **局部符号** | `add.o` 中的 `static bias` | 只在本文件内使用，类似文件内部的 private |
-| **外部符号** | `main.o` 中引用的 `add` | 本文件需要，由其他文件提供定义 |
+| **全局符号** | `main.o` 的 `main`；`add.o` 的 `add`；`data.o` 的 `x/y` | 本文件提供，可被其他文件引用 |
+| **局部符号** | `add.o` 中的 `static bias` | 只在本文件内使用 |
+| **外部符号** | `main.o` 中引用的 `x/y/add` | 本文件需要，由其他文件提供 |
 
 </div>
 
-同一个 `add`，对 `main.o` 来说是外部符号，对 `add.o` 来说是它提供的全局定义。{.text-sm.text-sky-5}
+例如 x：对 main.o 是外部符号，对 data.o 是它提供的全局定义。{.text-sm.text-sky-5}
 
 <!--
 全局/局部是链接可见性，外部描述本模块未定义的引用，并非 ELF 又一种独立的 binding 值。
-这里的局部符号是 static bias；函数参数 a、b 不属于本页所说的局部链接器符号。
-局部符号在不同目标文件里重名不会互相干扰。
+函数参数 a、b 不属于本页所说的局部链接器符号。
 参考：https://gabi.xinuos.com/elf/05-symtab.html
 -->
+
 
 ---
 
@@ -1647,40 +1563,137 @@ int g() {
 
 ---
 
-# 刚才读到的 add 信息，怎样放进符号表？
+# 三个伪节：UNDEF、COMMON、ABS
 
-把前面的“add → add.o 的 .text”展开成一条记录（右侧是简化结构）
+它们是 st_shndx 的特殊取值，描述符号的状态，不是真正存放内容的节
 
-<div grid="~ cols-2 gap-12">
-<div text-sm>
-
-- `name`：到 `.strtab` 中读取 `"add"` 这个名字
-- `value`
-  - 对于可重定位的模块来说，如 `add` 在 `add.o` 的 `.text` 内的偏移
-  - 对于可执行目标文件来说，该值是一个绝对运行时地址
-- `size`：`add` 的机器代码有多少字节
-- `type`：`add` 是函数，`bias` 是数据
-- `binding`：`add` 可给别的文件用，`bias` 只给本文件用
-- `section`：`add` 属于 `.text`，`bias` 属于 `.bss`
-
-</div>
-
+<div grid="~ cols-3 gap-6" class="text-[17px] leading-relaxed">
 <div>
 
+### UNDEF：等定义
+
 ```c
-typedef struct {
-    int name;        // .strtab 中的偏移
-    char type:4,     // 函数或数据
-         binding:4;  // 局部或全局
-    char reserved;   // 是否使用
-    short section;   // 节头部表索引
-    long value;      // 节内偏移或绝对地址
-    long size;       // 对象大小（字节）
-} Elf64_Symbol;
+// main.c
+#include "demo.h"
+int main(void) {
+    y = 3;
+    return add(x, y);
+}
 ```
+
+`main.o` 中的 `add` 标为 **UNDEF**：本文件使用了它，但没有定义。
+
+链接器在 `add.o` 找到定义后，就能把这个引用配上。
+
+</div>
+<div>
+
+### COMMON：等分配空间
+
+```c
+// 额外演示：common.c
+int workspace;
+```
+
+按课本的 `-fcommon` 模型编译：
+
+```sh
+gcc -fcommon -c common.c
+```
+
+`workspace` 标为 **COMMON**：先记录需要 4 字节及其对齐要求。
+
+链接器合并同名 COMMON 记录、分配空间，通常最终放进 `.bss`。
+
+</div>
+<div>
+
+### ABS：值已经固定
+
+```asm
+# 汇编中定义一个绝对符号
+.globl LIMIT
+.equ LIMIT, 4096
+```
+
+`LIMIT` 标为 **ABS**，符号值是 `4096`。
+
+即使代码、数据的位置因重定位而改变，`LIMIT` 的值仍是 `4096`。
 
 </div>
 </div>
+
+普通符号则指向真实的节：本例 add 在 .text，x 在 .data，y 和 bias 在 .bss。{.text-sm.text-sky-5}
+
+<!--
+common.c 与 LIMIT 是补充示例，不改变主例 main.c/add.c/data.c/demo.h 的代码。
+COMMON 的 st_size 记录大小，st_value 记录对齐；不把 COMMON 等同于 ELF STB_WEAK。
+ABS 表示不随重定位调整的符号值，不是一个自动分配存储空间的 C 变量。
+参考：https://gabi.xinuos.com/elf/03-sheader.html
+参考：https://gabi.xinuos.com/elf/05-symtab.html
+参考：https://gcc.gnu.org/onlinedocs/gcc/Code-Gen-Options.html
+参考：https://sourceware.org/binutils/docs/as/Equ.html
+-->
+
+
+---
+
+# COMMON 与 .bss：区别在 .o 阶段
+
+以下沿用课本的 -fcommon 模型；重点是是否已有所属节和节内位置
+
+<div grid="~ cols-2 gap-10" class="text-[18px] leading-normal">
+<div>
+
+### COMMON：先登记空间需求
+
+```c
+// common.c
+int workspace;
+```
+
+- 在 `common.o` 中记录**大小和对齐要求**，尚未归入某个输入节。
+- 多个文件的同名 COMMON 记录可以合并，最终只分配一份空间。
+- 若另一个文件有普通全局定义，如 `int workspace = 2;`，则采用那个定义。
+
+</div>
+<div>
+
+### .bss：已经归入当前文件的节
+
+```c
+// data.c
+int y = 0;
+// add.c
+static int bias = 0;
+static int foo; // 未显式初始化，初值仍为 0
+```
+
+- **.bss 中的节内偏移和大小已确定**。
+- `y` 是普通全局定义；别的文件再写 `int y = 0;` 会重复定义。
+- `bias`、`foo` 是本文件的局部符号。
+
+</div>
+</div>
+
+<div class="text-[18px] leading-normal mt-4">
+
+**COMMON 也不等于 UNDEF**：没有其他文件提供定义时，链接器会自己分配空间，通常放入输出文件的 `.bss`。
+
+**两者的最终运行地址都还要由链接器安排**；归入 .bss 不等于已经有了最终地址。
+
+</div>
+
+<!--
+COMMON 是一种暂定定义的目标文件表示，而不是“可能在其他文件中定义”的未定义外部引用。
+COMMON/.bss 的区别不等同于全局/局部可见性；.bss 可以含全局或局部符号。
+普通全局定义覆盖 COMMON 的含义是链接器采用普通定义，不把 COMMON 普遍等同于 STB_WEAK。
+两个 int y=0 是两个普通全局强定义；不把不同目标文件中的 static bias 视为冲突。
+本页补充 static int foo 说明未显式初始化的静态变量也进入 .bss；普通自动局部变量不属于这一类。
+参考：https://gcc.gnu.org/onlinedocs/gcc/Code-Gen-Options.html
+参考：https://gabi.xinuos.com/elf/05-symtab.html
+-->
+
 
 ---
 
@@ -1692,31 +1705,13 @@ typedef struct {
 
 | 目标文件中的记录 | section 所表达的信息 | 含义 |
 | --- | --- | --- |
-| `main.o` 的 `x` | `.data` | 已在本文件定义 |
-| `main.o` 的 `y = 0` | `.bss` | 已在本文件定义，初值为零 |
+| `data.o` 的 `x` | `.data` | 已在本文件定义 |
+| `data.o` 的 `y = 0` | `.bss` | 已在本文件定义，初值为零 |
 | `add.o` 的 `add` | `.text` | 已在本文件定义 |
 | `add.o` 的 `bias` | `.bss` | 本文件自己的静态变量 |
-| `main.o` 的 `add` | `UNDEF` | 本文件没有定义，需要去别处找 |
+| `main.o` 的 `x/y/add` | `UNDEF` | 本文件没有定义，需要去别处找 |
 
 </div>
-
-### 再补两种特殊记法
-
-- **ABS**：符号值不随重定位改变。
-- **COMMON**：暂时只记录空间需求，具体位置留给链接器分配。
-
-```c
-int a;        // 课本的 -fcommon 模型中，记为 COMMON
-static int b; // 记入 .bss
-```
-
-本例把 y 显式初始化为 0，放在 .bss；接下来的 COMMON 练习采用课本的 -fcommon 模型。{.text-sm.text-sky-5}
-
-<!--
-COMMON 不是 ELF 的弱绑定；暂定定义的合并与真正的 STB_WEAK 应区分。
-参考：https://gcc.gnu.org/onlinedocs/gcc/Code-Gen-Options.html
-参考：https://gabi.xinuos.com/elf/05-symtab.html
--->
 
 ---
 clicks: 5
@@ -1920,7 +1915,7 @@ C 暂定定义与 COMMON 的细节不在本例展开，不把现代 GCC 默认�
 <div grid="~ cols-2 gap-10">
 <div>
 
-### main.c 中有明确初值
+### data.c 中有明确初值
 
 <div class="optimization-diff">
 
@@ -2106,7 +2101,7 @@ void f()
 
 # 如果把 add.o 放进静态库？
 
-符号解析仍然是“需要 add，就找到 add 的定义”，只是换了一种打包方式
+仍用同一组代码：把 add.o、data.o 一起打包，main.o 仍是调用者
 
 <div grid="~ cols-2 gap-10">
 <div>
@@ -2114,10 +2109,10 @@ void f()
 ### 直接提供目标文件
 
 ```sh
-gcc main.o add.o -o demo
+gcc main.o add.o data.o -o demo
 ```
 
-`add.o` 直接参与链接，提供 `add` 的实现。
+`add.o` 提供 `add`，`data.o` 提供 `x`、`y`，都直接参与链接。
 
 </div>
 <div>
@@ -2128,7 +2123,7 @@ gcc main.o add.o -o demo
 gcc main.o ./libadd.a -o demo
 ```
 
-链接器发现需要 `add`，从库中取出包含它的 `add.o`。
+链接器需要 `add`、`x`、`y`，从库中取出相应的 `add.o`、`data.o`。
 
 </div>
 </div>
@@ -2143,9 +2138,9 @@ gcc main.o ./libadd.a -o demo
 
 ---
 
-# 给 add.o 打包，再链接同一个 main.o
+# 把 add.o、data.o 打包，再链接 main.o
 
-代码不用改，换的是链接命令中的输入文件
+沿用三文件动画中的代码，换的是链接输入的打包方式
 
 <div grid="~ cols-2 gap-10">
 <div>
@@ -2153,15 +2148,15 @@ gcc main.o ./libadd.a -o demo
 ### 创建 libadd.a
 
 ```sh
-gcc -g -O0 -c main.c add.c
-ar rcs libadd.a add.o
+gcc -g -O0 -c main.c add.c data.c
+ar rcs libadd.a add.o data.o
 ```
 
 <div class="text-[19px] leading-relaxed">
 
-`ar` 把 `add.o` 打包到静态库 `libadd.a`。
+`ar` 把 `add.o`、`data.o` 打包到静态库 `libadd.a`。
 
-库里仍能找到 `add` 的定义，以及 `add.o` 所需的其他内容。
+库里可以找到 `add`、`x`、`y` 的定义；`bias` 仍只在 `add.o` 内使用。
 
 </div>
 </div>
@@ -2188,86 +2183,7 @@ gcc main.o -L. -ladd -o demo
 </div>
 </div>
 
-接下来跟踪链接器怎样决定从库中取出 add.o。{.text-sm.text-sky-5}
-
----
-
-# 链接器怎样从库里取出 add.o？
-
-仍看这条命令：gcc main.o ./libadd.a -o demo
-
-<div class="text-[19px] leading-relaxed">
-
-- **E**：已经确定要参与链接的目标文件。
-- **U**：还没找到定义的外部符号。
-- **D**：已经找到的可供解析的定义。
-
-</div>
-
-<div class="linking-table text-[18px] mt-4">
-
-| 读到哪里 | 做什么 | 当前结果（只列本例相关符号） |
-| --- | --- | --- |
-| `main.o` | 加入 E，发现它还需要 `add` | E 有 `main.o`；U 有 `add`；D 有 `main/x/y` |
-| `libadd.a` | 库中 `add.o` 能提供 `add`，把它取出加入 E | E 再加入 `add.o`；D 再加入 `add`；U 中移除 `add` |
-
-</div>
-
-<div class="text-[19px] leading-relaxed mt-5">
-
-库里其他没有用到的成员目标文件不必取出。扫描完成后，若 U 仍有必须解析的符号，就报链接错误。
-
-此时已得到之前直接链接时需要的 `main.o`、`add.o`，后续安排位置和修补引用的步骤相同。
-
-</div>
-
----
-
-# 为什么 main.o 要写在静态库前面？
-
-链接器按命令顺序处理输入，静态库根据当时尚未解决的需求取成员
-
-<div grid="~ cols-2 gap-10">
-<div>
-
-### 先出现调用者
-
-```sh
-gcc main.o ./libadd.a -o demo
-```
-
-<div class="text-[19px] leading-relaxed">
-
-1. 读 `main.o`，记下“还需要 add”。
-2. 读 `libadd.a`，取出能提供它的 `add.o`。
-3. `add` 的需求被解决。
-
-</div>
-</div>
-<div>
-
-### 先出现静态库
-
-```sh
-gcc ./libadd.a main.o -o demo
-```
-
-<div class="text-[19px] leading-relaxed">
-
-1. 读库时还没有“需要 add”的记录，不取出 `add.o`。
-2. 后面读到 `main.o`，才出现对 `add` 的需求。
-3. 不自动返回重扫前面的库，因而报错。
-
-</div>
-</div>
-</div>
-
-多个静态库彼此依赖时，也要沿这条“谁需要谁”的关系安排顺序；必要时重复列库或使用分组搜索。{.text-sm.text-sky-5}
-
-<!--
-按本课 GNU 链接器的普通静态存档扫描规则说明。
-参考：https://sourceware.org/binutils/docs/ld/Options.html
--->
+接下来逐次点击，观察链接器从库里选入哪些目标文件。{.text-sm.text-sky-5}
 
 ---
 
@@ -2476,87 +2392,98 @@ foreach section s {  /* 迭代节 */
 
 ---
 
-<div grid="~ cols-2 gap-8">
-<div>
+# 相对重定位举例：main 调用 add
 
-# 相对重定位举例
+仍然修补 `return add(x, y);` 的调用；以下地址和偏移仅用于演示计算
 
-课本 sum 对应本例 add：修补函数调用
+<div grid="~ cols-2 gap-10">
+<div class="text-[18px] leading-normal">
 
-
-<div class="text-xs">
-
-
-```
+```text
 r.offset = 0xf
-r.symbol = sum
+r.symbol = add
 r.type = R_X86_64_PC32
 r.addend = -4
 ```
 
-- `r.offset`：`call` 指令第二个字节与 `main` 函数起始地址的偏移量 = `0xf`
-- `r.refptr`：要修改的地址，`s + r.offset` = `main + 0xf` = `0xf`
-- `refaddr`：引用的运行时地址 = `ADDR(s) + r.offset` = `0x4004d0 + 0xf` = `0x4004df`
-- `PC`：运行时的 PC，下一条指令的地址 = `0x4004e3`
-- `r.addend`：补偿 `refaddr` 和运行时 `PC` 之间的差值 = `0x4004df - 0x4004e3 = -4`
-- `ADDR(r.symbol)`：真实要得到的地址，也即 `sum` 的运行时地址 = `0x4004e8`
-
-`*refptr = (unsigned) (ADDR(r.symbol) + r.addend - refaddr) = (unsigned) (0x4004e8 + (-4) - 0x4004df) = 5`
+- `main` 的输出地址：`0x4004d0`。
+- 待填的 4 字节字段地址：`0x4004df`。
+- 下一条指令地址：`0x4004e3`。
+- `add` 的输出地址：`0x4004e8`。
 
 </div>
-
-</div>
-
 <div>
 
-![relocate_relative](/05-Compilation/relocate_relative.png){.mx-auto}
+### 调用指令中的字段
+
+```text
+修补前（main.o）
+call add  → e8 00 00 00 00
+              └ 待修补字段
+
+修补后（demo）
+call add  → e8 05 00 00 00
+```
+
+下一条指令地址加上位移：
+
+`0x4004e3 + 5 = 0x4004e8`
+
+正好到达 `add`。
 
 </div>
 </div>
+
+`填入值 = add 的地址 - 4 - 字段地址 = 0x4004e8 - 4 - 0x4004df = 5`{.text-sm.text-sky-5}
+
+<!--
+教学示意，偏移和布局不是前述 C 程序的实际反汇编。具体工具链也可使用 PLT32 调用重定位。
+-->
+
 
 ---
 
-<div grid="~ cols-2 gap-8">
+# 绝对重定位举例：引用 data.o 中的 x
+
+仍然看 main 对 x 的引用；下面示意需要填入绝对地址的字段
+
+<div grid="~ cols-2 gap-10">
 <div>
 
-
-# 绝对重定位举例
-
-课本 array 对应本例 x：修补数据引用
-
-<div class="text-xs">
-
-
-```
-r.offset = 0xa
-r.symbol = array
+```text
+r.symbol = x
 r.type = R_X86_64_32
 r.addend = 0
 ```
 
-- `r.offset`：引用 `array` 地址的 4 字节立即数字段与 `main` 函数起始地址的偏移量 = `0xa`
-- `r.refptr`：要修改的地址，`s + r.offset` = `main + 0xa` = `0xa`
-- `r.addend`：对于绝对重定位，设置为 0。
-- `ADDR(r.symbol)`：真实要得到的地址，也即 `array` 的运行时地址 = `0x601018`
+链接器从 `data.o` 中找到 `x`，布局后假设其地址为 `0x601018`。
 
-`*refptr = (unsigned) (ADDR(r.symbol) + r.addend) = (unsigned) (0x601018 + 0) = 0x601018`
+`填入值 = x 的地址 + 0 = 0x601018`
 
 </div>
-
-</div>
-
 <div>
 
-![relocate_absolute](/05-Compilation/relocate_absolute.png){.mx-auto}
+### 待修补的 4 字节字段
+
+```text
+修补前：00 00 00 00
+          ↓ 写入 x 的绝对地址
+修补后：18 10 60 00（小端序）
+```
+
+相对重定位填的是**位移**；这里填的是 **x 的地址本身**。
 
 </div>
 </div>
+
+这里展示绝对重定位的计算方式；前述 C 程序访问 x 的具体指令也可以采用 PC 相对寻址。{.text-sm.text-sky-5}
+
 
 ---
 
 # 链接后的 demo：可执行目标文件
 
-main.o、add.o 已经接好；下面看生成的文件和接下来的加载
+main.o、add.o、data.o 已经接好；下面看生成的文件和接下来的加载
 
 <div grid="~ cols-2 gap-12">
 <div text-sm>
@@ -2626,14 +2553,18 @@ main.o、add.o 已经接好；下面看生成的文件和接下来的加载
 
 <div class="optimization-diff">
 
-```c {5-6}
-int x = 2;  // X 处的初值为 2
-int y = 0;      // Y 处的初值为 0
-
+```c {3-4}
+#include "demo.h"
 int main(void) {
     y = 3;
     return add(x, y);
 }
+```
+
+```c
+// data.c
+int x = 2;  // X 处的初值为 2
+int y = 0;  // Y 处的初值为 0
 ```
 
 </div>
@@ -2680,7 +2611,7 @@ int add(int a, int b) {
 </div>
 
 <!--
-本页只展示相关代码片段，完整 main.c、add.c 和头文件见本例第一页。
+本页只展示相关代码片段，完整 main.c、add.c、data.c 和 demo.h 见本例第一页。
 main 的返回值为 5，不会打印字符 5；call 保存返回位置，ret 在调用之后继续执行。
 分离编译且不进行 LTO，按本课 -O0 的模型描述运行时动作。
 参考：https://gabi.xinuos.com/elf/06-reloc.html
@@ -2711,7 +2642,26 @@ C 标准库 `libc.so` 通常是动态链接的。
 
 <div>
 
-![dynamic_linking](/05-Compilation/dynamic_linking.png){.mx-auto}
+<div class="text-sm">
+
+```text
+main.c + data.c + demo.h
+          ↓ 编译、汇编
+     main.o + data.o
+          ↓ 链接 ← libadd.so 的符号信息
+         demo
+    （记录对 add 的动态引用）
+          ↓ 加载器
+    demo 的代码与数据
+          ↓ 动态链接器 ← libadd.so
+    解析 add，修补相应引用
+          ↓
+    运行 main，调用 add
+```
+
+`add.c` 仍定义 `add` 和私有的 `bias`，只是这次编译进共享库 `libadd.so`。
+
+</div>
 
 </div>
 </div>
@@ -2752,7 +2702,26 @@ C 标准库 `libc.so` 通常是动态链接的。
 
 <div>
 
-![dynamic_linking](/05-Compilation/dynamic_linking.png){.mx-auto}
+<div class="text-sm">
+
+```text
+main.c + data.c + demo.h
+          ↓ 编译、汇编
+     main.o + data.o
+          ↓ 链接 ← libadd.so 的符号信息
+         demo
+    （记录对 add 的动态引用）
+          ↓ 加载器
+    demo 的代码与数据
+          ↓ 动态链接器 ← libadd.so
+    解析 add，修补相应引用
+          ↓
+    运行 main，调用 add
+```
+
+`add.c` 仍定义 `add` 和私有的 `bias`，只是这次编译进共享库 `libadd.so`。
+
+</div>
 
 </div>
 </div>
@@ -2784,7 +2753,7 @@ clicks: 8
 
 # PLT 和 GOT 举例
 
-课本的 addvec 对应上一页的 add：跟踪第一次调用与之后的调用
+仍然调用同一个 add：跟踪第一次调用与之后的调用（地址为示意）
 
 <div grid="~ cols-2 gap-12">
 <div>
@@ -2796,13 +2765,13 @@ GOT[0]: addr of .dynamic
 GOT[1]: addr of reloc entries # 重定位条目的地址
 GOT[2]: addr of dynamic linker # 动态链接器的地址
 GOT[3]: 0x4005b6 # sys startup
-GOT[4]: 0x4005c6 # addvec()
+GOT[4]: 0x4005c6 # add()
 GOT[5]: 0x4005d6 # printf()
 ```
 
 ```asm
 # 代码段
-callq 0x4005c0 # call addvec()
+callq 0x4005c0 # call add()
 ```
 
 ```asm{all|1|6-7|6-7|6-8|6-9|1-3,6-9|1-4,6-9}{at:1}
@@ -2811,9 +2780,9 @@ callq 0x4005c0 # call addvec()
 4005a0: pushq *GOT[1]
 4005a6: jmpq *GOT[2]
 ...
-# PLT[2]: call addvec()
+# PLT[2]: call add()
 4005c0: jmpq *GOT[4]
-4005c6: pushq $0x1 # addvec 的 ID
+4005c6: pushq $0x1 # add 的 ID
 4005cb: jmpq 4005a0
 ```
 
@@ -2828,13 +2797,13 @@ GOT[0]: addr of .dynamic
 GOT[1]: addr of reloc entries
 GOT[2]: addr of dynamic linker
 GOT[3]: 0x4005b6 # sys startup
-GOT[4]: &addvec()
+GOT[4]: &add()
 GOT[5]: 0x4005d6 # printf()
 ```
 
 ```asm
 # 代码段
-callq 0x4005c0 # call addvec()
+callq 0x4005c0 # call add()
 ```
 
 ```asm{1,6-7}
@@ -2843,7 +2812,7 @@ callq 0x4005c0 # call addvec()
 4005a0: pushq *GOT[1]
 4005a6: jmpq *GOT[2]
 ...
-# PLT[2]: call addvec()
+# PLT[2]: call add()
 4005c0: jmpq *GOT[4]
 4005c6: pushq $0x1
 4005cb: jmpq 4005a0
