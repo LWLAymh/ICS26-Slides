@@ -32,7 +32,7 @@ coverBackgroundUrl: /06-ECF-and-SysIO/cover.jpg
 ---
 # ECF & SysIO
 
-Taoyu Yang, EECS, PKU
+Menghong Yu, EECS, PKU
 
 <style>
   div{
@@ -1638,7 +1638,6 @@ Signal Handler
 为什么 `printf` 不行？
 
 - 不可重入，有缓冲区
-- 考虑信号处理函数序列 <br> $\text{handler}_1 \to \text{handler}_2 \to \text{handler}_1$
 
 </div>
 </div>
@@ -1909,38 +1908,6 @@ int main(int argc, char **argv)
 2 must behind 0/1
 -->
 
----
-
-# 非本地跳转
-
-Nonlocal Jumps
-
-自学。
-
----
-
-# System-level I/O
-
-Taoyu Yang, EECS, PKU
-
-<style>
-  div{
-   @apply text-gray-2;
-  }
-</style>
-
----
-
-# 一些安排
-
-Reminders
-
-- 请注意 ShellLab 的 ddl 为明天（11.27）晚上 23:59。
-- 这部分内容较多较杂
-  - 请务必要注重读书和看课件
-  - 助教也不知道这次期末会变成什么样
-  - 平时没事的时候多看看书，至少考前能保证过个两遍课本内容
-  - 也请注意研讨题和作业题
 
 ---
 
@@ -2177,7 +2144,7 @@ ssize_t read(int fd, void *buf, size_t n);
 返回值：`ssize_t`（有符号整数，signed size_t）
 
 - 成功：**返回读取的字节数**
-- 读到 EOF：返回 `0` <span class="text-sm text-gray-5">也不算失败，但也不算完全正常？</span>
+- 直接读到 EOF：返回 `0` <span class="text-sm text-gray-5">也不算失败，但也不算完全正常？</span>
 - 失败：返回 `-1`，并设置 `errno`
 
 </div>
@@ -3018,49 +2985,6 @@ Keypoint：**`printf` 有缓冲区，父子进程不共享；`write` 由于直�
 
 ---
 
-# 研讨题
-
-研讨题 1
-
-- 基于课件第 4~5 页， 说明 Unix I/O 和文件的关系， 找到第 4 页提到的那几个表现成文件形式的 I/O 设备。
-  <div v-click>
-
-  > 在 Linux 里，“文件”被抽象成一个有序字节序列，所有 I/O 设备都被表示成文件，内核统一用“Unix I/O”接口（open/read/write/lseek/close）来操作这些对象。这样用户态程序就不用关心到底是磁盘、终端还是内核数据结构。
-  > - /dev/sda2：磁盘分区（例如 /usr 所在分区）
-  > - /dev/tty2：终端设备
-  > - /boot/vmlinuz-…：内核镜像文件
-  > - /proc：内核数据结构的“伪文件系统”（里面很多是“虚拟文件”）
-  </div>
-- 操作并展示， 然后分析： 在 Windows 或 Linux 中， 用文本编辑器打开一个二进制文件 （如图片文件） ，会显示出什么，为什么？用 Windows 保存一个文本文件（.txt） ，然后在 Linux 中打开（用系统自带的文本编辑器，或者用 cat -v） ，分析结尾出现的奇怪的符号是什么。
-  <div v-click>
-
-  > - 文本编辑器会显示乱码，以为编辑器假设其为文本，但其实文件内容是任意字节。
-  > - Windows 行末是 "\r\n"，在 Linux 用不能处理 CR 的打开时 CR 就会被显示成控制字符标记。
-  </div>
-
----
-
-# 研讨题
-
-研讨题 1
-
-- 基于课件第 22~24 页，讲解共享文件和创建进程时，文件相关几个表的变化。
-  <div v-click>
-
-  > - 两次打开同一个文件，描述符表和打开文件表里面表项都是独立的，但都指向同一个 v-node entry。**逻辑上是两个独立的“打开文件对象”，文件偏移彼此独立，但对应的是同一个磁盘文件**。
-  > - fork 出来的父子进程共享同一个打开文件对象（同一 open file entry），共享文件偏移和访问模式。打开文件表项的 refcnt > 1。
-  </div>
-- 基于课件第 25~27 页，讲解 I/O 重定向时，文件相关几个表的变化。
-  <div v-click>
-
-  > - `dup2(4, 1)` 的效果：把“描述符 4 的表项复制到描述符 1 位置”。
-  > - fd1 也指向 fd4 指向的打开文件表项
-  > - 原来 fd1 指向的 entry 的 refcnt 降为 0，被释放。
-  > - fd4 指向的 entry 的 refcnt 变成 2
-  </div>
-
----
-
 # 作业题
 
 Homework
@@ -3088,44 +3012,8 @@ STDIN, STDOUT, STDERR 占用 0, 1, 2 三个 fd。fd1 和 fd2 为 3、4，然后 
 
 </div>
 
----
-
-# 作业题
-
-Homework
-
-修改 `cpfile` 程序，使得其有一可选命令行参数 `infile`。若给定，则复制 `infile` 到 stdout，否则和之前一样复制 stdio 到 stdout。必须使用已有的复制循环，只能插入代码，不能修改已有代码。
-
-```c
-#include "csapp.h"
-
-int main(int argc, char **argv) {
-    int n;
-    rio_t rio;
-    char buf[MAXLINE];
-    Rio_readinitb(&rio, STDIN_FILENO);
-    while((n = Rio_readlineb(&rio, buf, MAXLINE)) != 0) 
-      Rio_writen(STDOUT_FILENO, buf, n);
-    exit(0);
-}
-```
-
-<div v-click>
-
-在复制之前插入这段代码即可，思路是把 STDIN 重定向到 `infile`。
-
-```c
-if (argc == 2) {
-    int fd = Open(argv[1], O_RDONLY, 0);  // 打开 infile
-    Dup2(fd, STDIN_FILENO);               // 把 infile 复制到标准输入
-    Close(fd);                            // 关闭多余的 fd
-}
-```
-
-</div>
 
 ---
-
 layout: cover
 class: text-center
 coverBackgroundUrl: /06-ECF-and-SysIO/cover.jpg
@@ -3133,8 +3021,6 @@ coverBackgroundUrl: /06-ECF-and-SysIO/cover.jpg
 
 # Thank you for your listening!
 
-
-Cat$^2$Fish❤
 
 <style>
   div{
